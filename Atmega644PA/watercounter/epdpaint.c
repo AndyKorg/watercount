@@ -42,6 +42,7 @@ void epdClear(int colored) {
 
 /**
 *  @brief: this draws a pixel by the coordinates
+*  
 */
 void epdDrawPixel(int x, int y, int colored) {
 	int point_temp;
@@ -81,8 +82,9 @@ void epdDrawPixel(int x, int y, int colored) {
 
 /**
 *  @brief: this draws a character on the pattern buffer but not refresh
+*          returns the x position of the end character
 */
-void epdDrawCharAt(int x, int y, char ascii_char, sFONT* font, int colored) {
+int epdDrawCharAt(int x, int y, char ascii_char, sFONT* font, int colored) {
 	int i, j;
 	unsigned int char_offset = 0;
 	sPROP_SYMBOL symbol;
@@ -99,9 +101,8 @@ void epdDrawCharAt(int x, int y, char ascii_char, sFONT* font, int colored) {
 				break;
 			}
 			char_offset += OffsetCalc(symbol.Width);
-			symbol.Symbol = NO_SYMBOL;
 		}
-		if (symbol.Symbol == NO_SYMBOL){
+		if(ascii_char != symbol.Symbol){
 			char_offset = 0;
 		}
 	}
@@ -125,12 +126,15 @@ void epdDrawCharAt(int x, int y, char ascii_char, sFONT* font, int colored) {
 			ptr++;
 		}
 	}
+
+	return x+symbol.Width;
 }
 
 /**
 *  @brief: this displays a string on the pattern buffer but not refresh
+*          returns the x position of the end string
 */
-void epdDrawStringAt(int x, int y, const char* text, sFONT* font, int colored) {
+int epdDrawStringAt(int x, int y, const char* text, sFONT* font, int colored) {
 	const char* p_text = text;
 	unsigned int counter = 0;
 	int refcolumn = x;
@@ -138,13 +142,14 @@ void epdDrawStringAt(int x, int y, const char* text, sFONT* font, int colored) {
 	/* Send the string character by character on EPD */
 	while (*p_text != 0) {
 		/* Display one character on EPD */
-		epdDrawCharAt(refcolumn, y, *p_text, font, colored);
+		refcolumn = epdDrawCharAt(refcolumn, y, *p_text, font, colored);
 		/* Decrement the column position by 16 */
-		refcolumn += font->Width;
+		//refcolumn += font->Width;
 		/* Point on the next character */
 		p_text++;
 		counter++;
 	}
+	return refcolumn;
 }
 
 /**

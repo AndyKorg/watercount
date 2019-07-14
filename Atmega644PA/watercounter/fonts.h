@@ -68,7 +68,7 @@ typedef struct _tFont
   uint16_t Width;								//fixed font only
   uint16_t Height;								
   const uint8_t tableSymbolSize;				//if null then table is full ascii table
-  const sPROP_SYMBOL *tableSymbol;		//if tableSymbolSize is not null then table symbol
+  const sPROP_SYMBOL *tableSymbol;				//if tableSymbolSize is not null then table symbol
   const enum FontWidthType FontType;
 } sFONT;
 

@@ -13,16 +13,16 @@
 
 #define EPD_PORT_DDR_OUT	DDRD
 #define EPD_PORT_OUT		PORTD
-#define EPD_PORT_DDR_IN		DDRD
-#define EPD_PORT_IN			PIND
+#define EPD_PORT_DDR_IN		DDRC
+#define EPD_PORT_IN			PINC
 
-#define EPD_DC_PIN			PORTD3	//Data/Command control pin (High for data, and low for command)
-#define EPD_RST_PIN			PORTD4	//External reset pin (Low for reset)
-#define EPD_BUSY_PIN		PIND5	//Busy state output pin (Low for busy)
+#define EPD_DC_PIN			PORTD6	//Data/Command control pin (High for data, and low for command)
+#define EPD_RST_PIN			PORTD7	//External reset pin (Low for reset)
+#define EPD_BUSY_PIN		PINC2	//Busy state output pin (Low for busy)
 
 #define	EPD_DDR_CS			DDRD
 #define EPD_PORT_CS			PORTD
-#define EPD_CS_PIN			PORTD2	//SPI chip select (Low active)
+#define EPD_CS_PIN			PORTD5	//SPI chip select (Low active)
 
 #ifdef EPD_SPI
 // EPD Pin definition for SPI
@@ -47,8 +47,8 @@
 	#define EPD_DDR_OUT_SPI_BITBANG			DDRD
 	#define EPD_PORT_OUT_SPI_BITBANG		PORTD
 
-	#define	EPD_CLK_PIN_SPI_BITBANG			PORTD1	//SPI SCK
-	#define EPD_DATA_PIN_SPI_BITBANG		PORTD0	//SPI MOSI
+	#define	EPD_CLK_PIN_SPI_BITBANG			PORTD4	//SPI SCK
+	#define EPD_DATA_PIN_SPI_BITBANG		PORTD3	//SPI MOSI
 
 #endif // EPD_SPI
 
