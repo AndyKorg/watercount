@@ -1,0 +1,57 @@
+<html>
+    <head>
+        <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+        <title>Setting</title>
+        <!--script src="scripts.js"></script-->
+    </head>
+    <body>
+        <form method="post" action="/saveOK.html">
+            <h4>WiFi Net</h4>
+            <p>
+                Name net<br>
+                <input name="ssid" value="~ssid~">
+                <p>
+                    password<br>
+                    <input name="pswrd" type="password" value="~pswrd~">
+                    <br>
+                    <br>
+                    <input type="submit" value="Save">
+                </p>
+        </form>
+        <form method="post" action="/saveOK.html">
+            <h4>Connect to cayenne (mqtt)</h4>
+            <p>
+                Address<br>
+                <input name="cay_host" value="~cay_host~">
+                <p>
+                    User name<br>
+                    <input name = "cay_user" value="~cay_user~">
+                    <p>
+                        password<br>
+                        <input name = "cay_pas" value="~cay_pas~">
+                        <p>
+                            Client ID<br>
+                            <input name = "cay_clnid" value="~cay_clnid~">
+                        </p>
+                    </p>
+                    <p>
+						Device name<br>
+                        <input name = "cay_model" value="~cay_model~">
+                        <br>
+                        <br>
+                        <input type="submit" value="Save">
+                    </p>
+				</p>
+			</p>
+        </form>
+        <form method="post" action="/saveOK.html">
+            <h4>start counter value</h4>
+            <input name = "watercount" value="~watercount~">
+			<p>
+            <br>
+            <br>
+            <input type="submit" value="Save">
+			</p>
+		</form>
+	</body>
+</html>

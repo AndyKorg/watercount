@@ -56,6 +56,18 @@
       </ToolNumber>
       <ToolName xmlns="">Custom Programming Tool</ToolName>
     </custom>
+    <AsfFrameworkConfig>
+      <framework-data xmlns="">
+        <options />
+        <configurations />
+        <files />
+        <documentation help="" />
+        <offline-documentation help="" />
+        <dependencies>
+          <content-extension eid="atmel.asf" uuidref="Atmel.ASF" version="3.40.0" />
+        </dependencies>
+      </framework-data>
+    </AsfFrameworkConfig>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <ToolchainSettings>
@@ -146,6 +158,12 @@
     <Compile Include="bits_macros.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="display.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="display.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="epd1in54.c">
       <SubType>compile</SubType>
     </Compile>
@@ -194,10 +212,28 @@
     <Compile Include="main.c">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="adc_diver.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="adc_diver.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="power_timer.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="power_timer.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="spi_bitbang.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="spi_bitbang.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="wifi.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="wifi.h">
       <SubType>compile</SubType>
     </Compile>
   </ItemGroup>

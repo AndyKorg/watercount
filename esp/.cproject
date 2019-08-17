@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?fileVersion 4.0.0?><cproject storage_type_id="org.eclipse.cdt.core.XmlProjectDescriptionStorage">
+	<storageModule moduleId="org.eclipse.cdt.core.settings">
+		<cconfiguration id="cdt.managedbuild.toolchain.gnu.cygwin.base.1004511199">
+			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="cdt.managedbuild.toolchain.gnu.cygwin.base.1004511199" moduleId="org.eclipse.cdt.core.settings" name="Default">
+				<externalSettings/>
+				<extensions>
+					<extension id="org.eclipse.cdt.core.Cygwin_PE" point="org.eclipse.cdt.core.BinaryParser"/>
+					<extension id="org.eclipse.cdt.core.GASErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GLDErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.CWDLocator" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GCCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+				</extensions>
+			</storageModule>
+			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+				<configuration artifactName="${ProjName}" buildProperties="" description="" id="cdt.managedbuild.toolchain.gnu.cygwin.base.1004511199" name="Default" optionalBuildProperties="org.eclipse.cdt.docker.launcher.containerbuild.property.selectedvolumes=,org.eclipse.cdt.docker.launcher.containerbuild.property.volumes=" parent="org.eclipse.cdt.build.core.emptycfg">
+					<folderInfo id="cdt.managedbuild.toolchain.gnu.cygwin.base.1004511199.1682149115" name="/" resourcePath="">
+						<toolChain id="cdt.managedbuild.toolchain.gnu.cygwin.base.247439991" name="Cygwin GCC" superClass="cdt.managedbuild.toolchain.gnu.cygwin.base">
+							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.Cygwin_PE" id="cdt.managedbuild.target.gnu.platform.cygwin.base.388875994" name="Debug Platform" osList="win32" superClass="cdt.managedbuild.target.gnu.platform.cygwin.base"/>
+							<builder arguments="${IDF_PATH}/tools/windows/eclipse_make.py" command="python" id="cdt.managedbuild.target.gnu.builder.cygwin.base.968392201" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" parallelBuildOn="true" parallelizationNumber="optimal" superClass="cdt.managedbuild.target.gnu.builder.cygwin.base"/>
+							<tool id="cdt.managedbuild.tool.gnu.assembler.cygwin.base.1547785768" name="GCC Assembler" superClass="cdt.managedbuild.tool.gnu.assembler.cygwin.base">
+								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.1175788286" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
+							</tool>
+							<tool id="cdt.managedbuild.tool.gnu.archiver.cygwin.base.1692195110" name="GCC Archiver" superClass="cdt.managedbuild.tool.gnu.archiver.cygwin.base"/>
+							<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.cygwin.base.1585306148" name="Cygwin C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.cygwin.base">
+								<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.cygwin.1956894226" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input.cygwin"/>
+							</tool>
+							<tool id="cdt.managedbuild.tool.gnu.c.compiler.cygwin.base.909664896" name="Cygwin C Compiler" superClass="cdt.managedbuild.tool.gnu.c.compiler.cygwin.base">
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="gnu.c.compiler.option.include.paths.1625273333" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
+									<listOptionValue builtIn="false" value="&quot;f:\esp8266\esp8266_rtos_sdk\components\mqtt\esp-mqtt\include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;f:\esp8266\esp8266_rtos_sdk\components\mqtt\esp-mqtt\lib\include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;f:\esp8266\esp8266_rtos_sdk\components\freertos\include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;f:\esp8266\esp8266_rtos_sdk\components\esp8266\include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;f:\esp8266\esp8266_rtos_sdk\components\log\include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;f:\esp8266\esp8266_rtos_sdk\components\nvs_flash\include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;f:\esp8266\esp8266_rtos_sdk\components\tcpip_adapter\include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;f:\esp8266\esp8266_rtos_sdk\components\esp_http_server\include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;f:\esp8266\esp8266_rtos_sdk\components\esp_http_server\src&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;F:\esp8266\esp8266_rtos_sdk\components&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;f:\esp8266\esp8266_rtos_sdk\components\spiffs\include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;f:\esp8266\esp8266_rtos_sdk\components\spi_flash\include&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;f:\esp8266\esp8266_rtos_sdk\components\freertos\include\freertos\private&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;f:\esp8266\esp8266_rtos_sdk\components\freertos\port\esp8266\include\freertos&quot;"/>
+								</option>
+								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.cygwin.1720036466" superClass="cdt.managedbuild.tool.gnu.c.compiler.input.cygwin"/>
+							</tool>
+							<tool id="cdt.managedbuild.tool.gnu.c.linker.cygwin.base.525886300" name="Cygwin C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.cygwin.base"/>
+							<tool id="cdt.managedbuild.tool.gnu.cpp.linker.cygwin.base.1651263685" name="Cygwin C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.cygwin.base">
+								<inputType id="cdt.managedbuild.tool.gnu.cpp.linker.input.411135835" superClass="cdt.managedbuild.tool.gnu.cpp.linker.input">
+									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
+									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
+								</inputType>
+							</tool>
+						</toolChain>
+					</folderInfo>
+				</configuration>
+			</storageModule>
+			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+		</cconfiguration>
+	</storageModule>
+	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+		<project id="watercounter.null.232091937" name="watercounter"/>
+	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
+	<storageModule moduleId="refreshScope" versionNumber="2">
+		<configuration configurationName="Default">
+			<resource resourceType="PROJECT" workspacePath="/watercounter"/>
+		</configuration>
+	</storageModule>
+	<storageModule moduleId="scannerConfiguration">
+		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.cygwin.base.1004511199;cdt.managedbuild.toolchain.gnu.cygwin.base.1004511199.1682149115;cdt.managedbuild.tool.gnu.cpp.compiler.cygwin.base.1585306148;cdt.managedbuild.tool.gnu.cpp.compiler.input.cygwin.1956894226">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.cross.base.518413449;cdt.managedbuild.toolchain.gnu.cross.base.518413449.1199229384;cdt.managedbuild.tool.gnu.cross.cpp.compiler.579885177;cdt.managedbuild.tool.gnu.cpp.compiler.input.1748009690">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.cross.base.518413449;cdt.managedbuild.toolchain.gnu.cross.base.518413449.1199229384;cdt.managedbuild.tool.gnu.cross.c.compiler.535886383;cdt.managedbuild.tool.gnu.c.compiler.input.974796813">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.cygwin.base.1004511199;cdt.managedbuild.toolchain.gnu.cygwin.base.1004511199.1682149115;cdt.managedbuild.tool.gnu.c.compiler.cygwin.base.909664896;cdt.managedbuild.tool.gnu.c.compiler.input.cygwin.1720036466">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="0.1591688403">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
+	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets">
+		<buildTargets>
+			<target name="flash" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
+				<buildCommand>python</buildCommand>
+				<buildArguments>${IDF_PATH}/tools/windows/eclipse_make.py -j8</buildArguments>
+				<buildTarget>flash</buildTarget>
+				<stopOnError>true</stopOnError>
+				<useDefaultCommand>true</useDefaultCommand>
+				<runAllBuilders>true</runAllBuilders>
+			</target>
+			<target name="partition_table" path="" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
+				<buildCommand>python</buildCommand>
+				<buildArguments>${IDF_PATH}/tools/windows/eclipse_make.py -j8</buildArguments>
+				<buildTarget>partition_table</buildTarget>
+				<stopOnError>true</stopOnError>
+				<useDefaultCommand>true</useDefaultCommand>
+				<runAllBuilders>true</runAllBuilders>
+			</target>
+		</buildTargets>
+	</storageModule>
+</cproject>
