@@ -1,0 +1,57 @@
+<html>
+    <head>
+        <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+        <title>Setting</title>
+        <!--script src="scripts.js"></script-->
+		<style>
+			#inp {
+				width: 300px;
+			} 
+  </style>
+    </head>
+    <body>
+        <form method="post" action="/saveOK.html">
+            <h4>WiFi Net</h4>
+            <p>
+				Name net<br>
+                <input name="ssid" id="inp" value="~ssid~">
+                <p>
+                    password<br>
+                    <input name="pswrd"  id="inp" type="password" value="~pswrd~">
+                <p>
+                    update server, ip address <br>
+                    <input name="ota_ip" id="inp"  value="~ota_ip~">
+                    <br>
+                    <br>
+                    <input type="submit" value="Save">
+                </p>
+        </form>
+        <form method="post" action="/saveOK.html">
+            <h4>Connect to cayenne (mqtt)</h4>
+            <p>
+                Address (only adress, without protocol name!)<br>
+                <input name="cay_host"  id="inp" value="~cay_host~">
+                <p>
+                    User name<br>
+                    <input name = "cay_user"  id="inp" value="~cay_user~"><!--TODO: add checked correct-->
+                    <p>
+                        password<br>
+                        <input name = "cay_pas"  id="inp" type="password" value="~cay_pas~">
+                        <p>
+                            Client ID<br>
+                            <input name = "cay_clnid"  id="inp" value="~cay_clnid~">
+                        </p>
+                    </p>
+                    <p>
+						Device name<br>
+                        <input name = "cay_model"  id="inp" value="~cay_model~">
+                        <br>
+                        <br>
+                        <input type="submit" value="Save">
+                    </p>
+				</p>
+			</p>
+        </form>
+		ver. ~version~
+	</body>
+</html>
