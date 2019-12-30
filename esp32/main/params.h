@@ -56,5 +56,9 @@ esp_err_t paramReg(const paramName_t paramName, const size_t maxLen, const handl
  */
 uint8_t paramRead(const paramName_t paramName, char *bufValue);
 esp_err_t paramWrite(const paramName_t paramName, const char *value, handler_save *save_ptr);
+/*
+ * base read function
+ */
+esp_err_t read_nvs_param(const char * nvs_area, const paramName_t paramName, char *value, size_t maxLen);
 
 #endif /* MAIN_PARAMS_H_ */

@@ -23,6 +23,7 @@
 #include "params.h"
 
 #include "http_srv.h"
+#include "cayenne.h"
 
 //#include "ota_client.h"
 
@@ -31,7 +32,7 @@ static const char *TAG = "WIFI";
 #define __ESP_FILE__			NULL 		//Нет имен ошибок
 
 #define STORAGE_WIFI_PARAM 		"wifi_prm"	//wifi parameters storage
-#define AP_MAX_STA_CONN			4			//Максимальное количество клиентов подключаемых к AP
+#define AP_MAX_STA_CONN			4			//maximum count clients on AP
 
 wifi_sta_config_t wifi_sta_param;
 
@@ -45,51 +46,33 @@ const int WIFI_PROCESS_BIT = BIT0,			//Wifi запущен
 
 esp_err_t read_wifi_param(const paramName_t paramName, char *value, size_t maxLen) {
 
-	nvs_handle my_handle;
-	esp_err_t ret = ESP_ERR_NVS_NOT_FOUND;
-
-	ESP_LOGI(TAG, "wifi read start");
-	if (nvs_open(STORAGE_WIFI_PARAM, NVS_READONLY, &my_handle) == ESP_OK) {
-		ESP_LOGI(TAG, "nvs wifi open Ok");
-		size_t size = 0;
-		ret = nvs_get_str(my_handle, paramName, NULL, &size);
-		if (ret == ESP_OK) {
-			ESP_LOGI(TAG, "size %s = %d", paramName, size);
-			ret = ESP_ERR_INVALID_SIZE;
-			if (size < maxLen) {
-				nvs_get_str(my_handle, paramName, value, &size);
-				ESP_LOGI(TAG, "%s = %s", paramName, value);
-				ret = ESP_OK;
-			}
-		}
-	}
-	nvs_close(my_handle);
-	return ret;
+	return read_nvs_param(STORAGE_WIFI_PARAM, paramName, value, maxLen);
 }
 
 esp_err_t read_wifi_params(void) {
 
 	ESP_LOGI(TAG, "wifi param read");
-	esp_err_t ret = read_wifi_param(STA_PARAM_SSID_NAME, (char*) wifi_sta_param.ssid, 32);
+	esp_err_t ret = read_nvs_param(STORAGE_WIFI_PARAM, STA_PARAM_SSID_NAME, (char*) wifi_sta_param.ssid, 32);
 	if (ret == ESP_OK) {
-		ret = read_wifi_param(STA_PARAM_PASWRD_NAME, (char*) wifi_sta_param.password, 64);
+		ret = read_nvs_param(STORAGE_WIFI_PARAM, STA_PARAM_PASWRD_NAME, (char*) wifi_sta_param.password, 32);
 	}
 	return ret;
 }
 
 esp_err_t write_wifi_param(const paramName_t paramName, const char *value, size_t maxLen) {
-	ESP_LOGI(TAG, "wifi param save");
+	ESP_LOGI(TAG, "wifi param %s %s save", paramName, value);
 	if (paramName && value) {
 		if (strlen(value) <= maxLen) {
 			if (!strcmp(paramName, STA_PARAM_SSID_NAME)) {
 				strcpy((char*) wifi_sta_param.ssid, value);
-			}
-			if (!strcmp(paramName, STA_PARAM_PASWRD_NAME)) {
+			} else if (!strcmp(paramName, STA_PARAM_PASWRD_NAME)) {
 				strcpy((char*) wifi_sta_param.password, value);
 			}
+			ESP_LOGI(TAG, "save OK");
 			return ESP_OK;
 		}
 	}
+	ESP_LOGE(TAG, "wifi param %s %s save error", paramName, value);
 	return ESP_ERR_INVALID_ARG;
 }
 
@@ -98,6 +81,7 @@ esp_err_t save_wifi_params(void) {
 	nvs_handle my_handle;
 	esp_err_t ret = ESP_ERR_INVALID_SIZE;
 
+	ESP_LOGI(TAG, "wifi param save to nvs start");
 	if (wifi_sta_param.ssid[0] != '\0') {
 		if (nvs_open(STORAGE_WIFI_PARAM, NVS_READWRITE, &my_handle) == ESP_OK) {
 			ESP_LOGI(TAG, "Write open ok");
@@ -124,7 +108,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 	switch (event_id) {
 	case IP_EVENT_STA_GOT_IP:
 		ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
-		/*        Cayenne_app_start();*/
+		Cayenne_app_start();
 		start_webserver();
 		xEventGroupSetBits(wifi_event_group, WIFI_GOT_IP_BIT);
 		break;
@@ -138,14 +122,14 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
 	/*wifi_event_ap_staconnected_t *event =
 	 (wifi_event_ap_staconnected_t*) event_data;*/
 
-	static uint8_t ap_sta_connect_count = 0;		//счетчик подключенных клиентов в режиме AP
+	static uint8_t ap_sta_connect_count = 0;		//count clients from mode AP
 
 	switch (event_id) {
 	case WIFI_EVENT_STA_START:
 		xEventGroupSetBits(wifi_event_group, WIFI_PROCESS_BIT);
 		esp_wifi_connect();
 		break;
-	case WIFI_EVENT_STA_DISCONNECTED:		//Тут можно считать количество дисконектов и что-то предпринять
+	case WIFI_EVENT_STA_DISCONNECTED:
 		esp_wifi_connect();
 		break;
 	case WIFI_EVENT_AP_STACONNECTED:
@@ -192,11 +176,11 @@ bool wifi_ap_count_client() {
 void wifi_init(wifi_mode_t mode) {
 	static uint8_t netIfInit = 0;
 
-	if ((wifi_sta_param.ssid[0] == 0) && ((mode == WIFI_MODE_STA) || (mode == WIFI_MODE_APSTA))) {		//Нет параметров ST
-		if (mode == WIFI_MODE_APSTA) {	//попробуем запустить только AP
+	if ((wifi_sta_param.ssid[0] == 0) && ((mode == WIFI_MODE_STA) || (mode == WIFI_MODE_APSTA))) {		//parameters ST is empty
+		if (mode == WIFI_MODE_APSTA) {	//Only AP
 			mode = WIFI_MODE_AP;
 		} else {
-			return;	//нечего запускать
+			return;						//no mode
 		}
 	}
 
@@ -213,9 +197,17 @@ void wifi_init(wifi_mode_t mode) {
 	;
 	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
+	if (mode == WIFI_MODE_APSTA) {
+		ESP_LOGI(TAG, "wifi MIX mode start");
+	} else if (mode == WIFI_MODE_STA) {
+		ESP_LOGI(TAG, "wifi ST mode start");
+	} else if (mode == WIFI_MODE_AP) {
+		ESP_LOGI(TAG, "wifi AP mode start");
+	}
+
 	ESP_ERROR_CHECK(esp_wifi_set_mode(mode));
 
-	wifi_config_t wifi_config = { .ap = { .ssid = AP_SSID } };//Именно так инициализируется имя сети для AP, если просто скопировать имя в массив, то не работает, инициализация происходит, но к сети никто подключится не моежт
+	wifi_config_t wifi_config = { .ap = { .ssid = AP_SSID } };//This is how the network name for the AP is initialized, if you just copy the name into an array, it doesn’t work, initialization happens, but no one can connect to the network
 	if ((mode == WIFI_MODE_AP) || (mode == WIFI_MODE_APSTA)) {
 		esp_netif_create_default_wifi_ap();
 		wifi_config.ap.ssid_len = strlen(AP_SSID);
@@ -232,6 +224,7 @@ void wifi_init(wifi_mode_t mode) {
 		esp_netif_create_default_wifi_sta();
 		strcpy((char*) wifi_config.sta.ssid, (char*) wifi_sta_param.ssid);
 		strcpy((char*) wifi_config.sta.password, (char*) wifi_sta_param.password);
+		ESP_LOGI(TAG, "st net=%s pas=%s", wifi_config.sta.ssid, wifi_config.sta.password);
 		ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
 	}
 
@@ -261,8 +254,9 @@ void wifi_init_param(void) {
 
 	wifi_event_group = xEventGroupCreate();
 	xEventGroupClearBits(wifi_event_group, WIFI_PROCESS_AP_BIT | WIFI_PROCESS_BIT | WIFI_GOT_IP_BIT | CLIENT_CONNECTED);
-	read_wifi_params();
 	if (paramReg(STA_PARAM_SSID_NAME, 32, read_wifi_param, write_wifi_param, save_wifi_params) == ESP_OK) {
 		paramReg(STA_PARAM_PASWRD_NAME, 64, read_wifi_param, write_wifi_param, save_wifi_params);
 	}
+	read_wifi_params();
+	Cayenne_Init();
 }

@@ -7,6 +7,7 @@
 #include "search.h"
 #include "esp_err.h"
 #include "esp_log.h"
+#include "nvs.h"
 
 static const char *TAG = "prm";
 
@@ -77,6 +78,33 @@ esp_err_t paramReg(const paramName_t paramName, const size_t maxLen, const handl
 	entry->value.cb_save = cb_save;
 	ESP_LOGI(TAG, "reg OK");
 	return ESP_OK;
+}
+
+esp_err_t read_nvs_param(const char * nvs_area, const paramName_t paramName, char *value, size_t maxLen) {
+
+	nvs_handle my_handle;
+	esp_err_t ret = ESP_ERR_NVS_NOT_FOUND;
+
+	ESP_LOGI(TAG, "read start aray");
+	if (strlen(nvs_area) > PARAM_NAME_LEN){
+		return ESP_ERR_NVS_KEY_TOO_LONG;
+	}
+	if (nvs_open(nvs_area, NVS_READONLY, &my_handle) == ESP_OK) {
+		ESP_LOGI(TAG, "nvs open Ok");
+		size_t size = 0;
+		ret = nvs_get_str(my_handle, paramName, NULL, &size);
+		if (ret == ESP_OK) {
+			ESP_LOGI(TAG, "size %s = %d", paramName, size);
+			ret = ESP_ERR_INVALID_SIZE;
+			if (size < maxLen) {
+				nvs_get_str(my_handle, paramName, value, &size);
+				ESP_LOGI(TAG, "%s = %s", paramName, value);
+				ret = ESP_OK;
+			}
+		}
+	}
+	nvs_close(my_handle);
+	return ret;
 }
 
 uint8_t paramRead(const paramName_t paramName, char *bufValue) {

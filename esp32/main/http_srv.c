@@ -196,11 +196,10 @@ esp_err_t parse_query(httpd_req_t *req) {
 			if (paramName) {
 				val = strtok_r(NULL, "=", &value_ptr);
 				ESP_LOGI(TAG, "param query = %s val = %s", paramName, val);
-				if (paramWrite(paramName, val, &saveFunc) == ESP_OK){
-					if (saveFuncPrev == NULL){
+				if (paramWrite(paramName, val, &saveFunc) == ESP_OK) {
+					if (saveFuncPrev == NULL) {
 						saveFuncPrev = saveFunc;
-					}
-					else if (saveFunc != saveFuncPrev){
+					} else if (saveFunc != saveFuncPrev) {
 						(*saveFuncPrev)();
 						saveFuncPrev = saveFunc;
 					}
@@ -208,7 +207,7 @@ esp_err_t parse_query(httpd_req_t *req) {
 			}
 			pair_buf = strtok_r(NULL, "&", &pair_ptr);
 		};
-		if (saveFunc){
+		if (saveFunc) {
 			(*saveFunc)();
 		}
 		remaining -= ret;
@@ -238,6 +237,7 @@ esp_err_t get_page_handler(httpd_req_t *req) {
 				return ESP_OK;
 			}
 		}
+		ESP_LOGI(TAG, "req uri = %s", req->uri);
 		//find resource in file system
 		size_t fnLen = strlen((char*) req->user_ctx);
 		if (fnLen == 0) {
@@ -245,7 +245,6 @@ esp_err_t get_page_handler(httpd_req_t *req) {
 			httpd_resp_send(req, HTTPD_500, sizeof(HTTPD_500));
 			return ESP_OK;
 		}
-		ESP_LOGI(TAG, "req uri = %s", req->uri);
 		ESP_LOGI(TAG, "user_ctx = %s", (char* ) req->user_ctx);
 		fileName = (char*) req->user_ctx;
 		ESP_LOGI(TAG, "typeHdr = %s", getTypeFile(fileName, &typeFile));
@@ -254,7 +253,7 @@ esp_err_t get_page_handler(httpd_req_t *req) {
 		ESP_LOGI(TAG, "uri file = %s", fileName);
 		if (typeFile == ftText) {
 			resp = parse_page(fileName, &fileSize, &err);
-			ESP_LOGI(TAG, "size = %d content %s", fileSize, resp);
+			ESP_LOGI(TAG, "size = %d text html", fileSize);
 		} else {
 			resp = read_file(fileName, &fileSize, &err);
 			ESP_LOGI(TAG, "size = %d binary file", fileSize);
@@ -308,22 +307,28 @@ uint8_t countFileFromDir(char *dir_name) {
 
 bool urlRegister(httpd_handle_t server, char *url, char *fileName, httpd_uri_t *urlList) {
 	char *uri = calloc(strlen(DIR_SPLASH) + strlen(url) + 2, 1);
+	char *flName = calloc(strlen(fileName) + 1, sizeof(char));
+
 	if (uri) {
 		urlList++;
 		strcat(uri, DIR_SPLASH);
 		strcat(uri, url);
+		strcpy(flName, fileName);
 		//GET method
 		urlList->method = HTTP_GET;
-		urlList->user_ctx = (void*) fileName;
+		urlList->user_ctx = (void*) flName;
 		urlList->handler = get_page_handler;
 		urlList->uri = uri;
-		httpd_register_uri_handler(server, urlList);
-		//POST method
-		urlList->method = HTTP_POST;
-		httpd_register_uri_handler(server, urlList);
-		ESP_LOGI(TAG, "Registering URI %s file name %s", urlList->uri, (char* )urlList->user_ctx);
-		return true;
+		if (httpd_register_uri_handler(server, urlList) == ESP_OK) {
+			//POST method
+			urlList->method = HTTP_POST;
+			if (httpd_register_uri_handler(server, urlList) == ESP_OK) {
+				ESP_LOGI(TAG, "Registering URI %s file name %s", urlList->uri, (char* )urlList->user_ctx);
+				return true;
+			}
+		}
 	}
+	ESP_LOGE(TAG, "Registering URI %s file name %s error", uri, fileName);
 	return false;
 }
 
@@ -365,6 +370,7 @@ void freeUrlsList(void) {
 		if (numberUri) {
 			for (i = 0; i <= numberUri; i++) {		//Именно от 0 до count, т.к. регестрируется пустой uri "/"
 				free((char*) uriGetList->uri);
+				free((char*) uriGetList->user_ctx);
 				uriGetList++;
 			}
 			free(uriGetList);
@@ -409,7 +415,7 @@ bool start_webserver(void) {
 		uriGetList = (httpd_uri_t*) calloc(numberUri + 1, sizeof(httpd_uri_t));
 		if (uriGetList) {
 			ESP_LOGI(TAG, "Registering URI start");
-			if (urlRegister(http_server, "", ROOT_FILE_NAME, uriGetList)) {
+			if (urlRegister(http_server, "", ROOT_FILE_NAME, uriGetList)) { //root uri
 				urlsListReg(http_server, DIR_SPLASH, uriGetList);
 			}
 			return true;
