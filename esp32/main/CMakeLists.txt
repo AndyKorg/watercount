@@ -2,7 +2,7 @@
 set(COMPONENT_REQUIRES )
 set(COMPONENT_PRIV_REQUIRES )
 
-set(COMPONENT_SRCS "main.c" "wifi.c" "http_srv.c" "utils.c" "params.c" "cayenne.c" "display/epdif.c" "display/epd1in54.c" )
+set(COMPONENT_SRCS "main.c" "wifi.c" "http_srv.c" "utils.c" "params.c" "cayenne.c" "display/epdif.c" "display/epd1in54.c" "display/epdpaint.c")
 
 set(COMPONENT_ADD_INCLUDEDIRS "")
 

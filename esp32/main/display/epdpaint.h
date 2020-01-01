@@ -23,8 +23,8 @@ extern struct sPaint
 	int rotate;
 	unsigned char* image;
 } Paint;
-//Ёто только частична€ инициализаци€! ѕолна лежит в epdInit(const unsigned char* lut);
-unsigned char epdImageInit(void);
+
+unsigned char epdImageInit(void);//Image init, for hard ini use epdInit(const unsigned char* lut);
 void epdClear(int colored);
 void epdDrawAbsolutePixel(int x, int y, int colored);
 void epdDrawPixel(int x, int y, int colored);

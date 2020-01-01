@@ -78,7 +78,11 @@ void lcd_reset(void) {
 	vTaskDelay(200 / portTICK_RATE_MS);
 }
 
-esp_err_t IfInit(void) {
+esp_err_t IfInit(const uint16_t max_buf_size) {
+	gpio_set_direction(EPD_DC_PIN, GPIO_MODE_OUTPUT);
+	gpio_set_direction(EPD_RST_PIN, GPIO_MODE_OUTPUT);
+	gpio_set_direction(EPD_BUSY_PIN, GPIO_MODE_INPUT);
+
 	esp_err_t ret;
 	spi_bus_config_t buscfg = { // @formatter:off
         .miso_io_num = -1,
@@ -86,14 +90,14 @@ esp_err_t IfInit(void) {
         .sclk_io_num = EPD_NUM_CLK,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
-        .max_transfer_sz = 320*2+8
+        .max_transfer_sz = max_buf_size+4,
 		// @formatter:on
 			};
 	spi_device_interface_config_t devcfg = {
 #ifdef CONFIG_LCD_OVERCLOCK
         .clock_speed_hz=26*1000*1000,           //Clock out at 26 MHz
 #else
-			.clock_speed_hz = 10 * 1000 * 1000,        //Clock out at 10 MHz
+			.clock_speed_hz = 1 * 1000 * 1000,        //Clock out at 10 MHz 4 - 125 us
 #endif
 			.mode = 0,									//SPI mode 0
 			.spics_io_num = EPD_NUM_CS,					//CS pin
@@ -106,9 +110,6 @@ esp_err_t IfInit(void) {
 	//Attach the LCD to the SPI bus
 	ret = spi_bus_add_device(EPD_SPI_HOST, &devcfg, &spi);
 	ESP_ERROR_CHECK(ret);
-	gpio_set_direction(EPD_DC_PIN, GPIO_MODE_OUTPUT);
-	gpio_set_direction(EPD_RST_PIN, GPIO_MODE_OUTPUT);
-	gpio_set_direction(EPD_BUSY_PIN, GPIO_MODE_INPUT);
 
 	return ESP_OK;
 }

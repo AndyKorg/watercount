@@ -1,9 +1,9 @@
 /*
 * high driver E-Paper
 */
-#include <avr/pgmspace.h>
 #include <stdlib.h>
 #include <stddef.h>
+#include <string.h>
 #include "epdpaint.h"
 
 struct sPaint Paint;
@@ -95,7 +95,7 @@ int epdDrawCharAt(int x, int y, char ascii_char, sFONT* font, int colored) {
 	//get symbol and offset if table not full ascii table
 	if (font->tableSymbolSize){
 		for (i=0; i<= font->tableSymbolSize; i++){
-			memcpy_P(&symbol, &(font->tableSymbol[i]), sizeof(sPROP_SYMBOL));
+			memcpy(&symbol, &(font->tableSymbol[i]), sizeof(sPROP_SYMBOL));
 			symbol.Width = (font->FontType == monospaced)?font->Width:symbol.Width; //proportional font may be
 			if(ascii_char == symbol.Symbol){
 				break;
@@ -115,7 +115,7 @@ int epdDrawCharAt(int x, int y, char ascii_char, sFONT* font, int colored) {
 
 	for (j = 0; j < font->Height; j++) {
 		for (i = 0; i < symbol.Width; i++) {
-			if (pgm_read_byte(ptr) & (0x80 >> (i % 8))) {
+			if ((*ptr) & (0x80 >> (i % 8))) {
 				epdDrawPixel(x + i, y + j, colored);
 			}
 			if (i % 8 == 7) {
@@ -293,7 +293,7 @@ unsigned char epdImageInit(void){
 	if (!(Paint.image == NULL)){
 		free(Paint.image);
 	}
-	Paint.image = malloc((getWidth(Paint.width)/8) * Paint.height);
+	Paint.image = calloc((getWidth(Paint.width)/8) * Paint.height, 1); //1 - only 1 byte
 	if (Paint.image == NULL){
 		return EXIT_FAILURE;
 	}

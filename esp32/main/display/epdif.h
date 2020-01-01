@@ -7,7 +7,7 @@
 
 #include "esp_err.h"
 
-esp_err_t IfInit(void);
+esp_err_t IfInit(const uint16_t max_buf_size);//reserved description for dma
 void lcd_reset(void);
 void lcd_cmd(const uint8_t cmd, const uint8_t *data, const uint16_t len);
 //void lcd_data(const uint8_t *data, int len);

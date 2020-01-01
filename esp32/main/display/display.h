@@ -9,20 +9,20 @@
 #ifndef DISPLAY_H_
 #define DISPLAY_H_
 
-#define STRING_MARGIN_HIGHT			5				//Отступ
+#define STRING_MARGIN_HIGHT			5				//margin from border display
 #define STRING_MARGIN_LOW			3
 #define	FONT_BIG
 #define FONT_LOW
 
-#define NULL_DATE					0				//Неустановленное время
-#define NULL_DATE_STR				"неизвестно"	//Выводится вместо 11.11.1111
+#define NULL_DATE					0				//undefined time
+#define NULL_DATE_STR				"неизвестно"	//repleace 11.11.1111
 
-#define	COUNT_SHOW_MAX				99999			//Максимальное отображаемое число на дисплее для большого шрифта
+#define	COUNT_SHOW_MAX				99999			//maximun number for big font
 
 void eInkInit(void);
 void displayShow(void);
-void DispleyNeedRefresh(void);						//Требуется обновить дисплей
-uint8_t DisplayRefreshProcess();					//Идет обновление
+void DispleyNeedRefresh(void);						//need refresh
+uint8_t DisplayRefreshProcess();					//refresh process
 
 int digitalShowDebug(char* value);
 #ifdef DEBUG

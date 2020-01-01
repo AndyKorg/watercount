@@ -52,7 +52,7 @@ void app_main(void) {
 		}
 		ESP_ERROR_CHECK(ret);
 
-		start_ulp_program();
+		//start_ulp_program();
 
 		gpio_config_t io_conf;
 		io_conf.pin_bit_mask = GPIO_SEL_36;
@@ -74,10 +74,13 @@ void app_main(void) {
 //		ESP_ERROR_CHECK(esp_sleep_enable_ulp_wakeup());
 //		esp_deep_sleep_start();
 
+		ESP_LOGI("GPIO", "36 is low");
 		epdInit(lut_full_update);
 
-		ESP_LOGI("GPIO", "36 is low");
-
+		epdClearPatternMemory(0xff);// bit set = white, bit reset = black
+		epdDisplayPattern();
+		epdClearPatternMemory(0xff);// bit set = white, bit reset = black
+		epdDisplayPattern();
 	}
 }
 

@@ -3,23 +3,16 @@
  *
  */ 
 
-#include <avr/io.h>
 #include <stdlib.h>
 #include <string.h>
-#include <avr/sleep.h>
-#include <avr/power.h>
-#include <avr/interrupt.h>
 #include <time.h>
 #include "epd1in54.h"
 #include "epdpaint.h"
 
-#include "power_timer.h"
-#include "adc_diver.h"
-#include "wifi.h"
 #include "display.h"
 
-//Позиции курсора
-uint16_t countPos,					//Цифры счетчика
+//fixed cursor position for
+uint16_t countPos,					//Digit counter
 		powerPosX, powerPosY,		//Заряд батареи по X и по Y
 		sCheckBatPos,				//Надпись "проверено" для батареи
 		dtCheckPos,					//Дата проверки батареи
@@ -77,6 +70,7 @@ int dtShow(time_t* value, int x){
 }
 
 //Выводит напряжение на батарее до двух знаков после запятой, возвращает позицию х на которй был закончен вывод
+uint8_t REF_1V1_ACCURATE = 1, batVoltage = 1;
 int batShow(int x){
 	char s[10], cnv[10];
 	memset(s, 0, sizeof(s));
