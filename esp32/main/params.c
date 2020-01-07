@@ -9,6 +9,9 @@
 #include "esp_log.h"
 #include "nvs.h"
 
+#undef   LOG_LOCAL_LEVEL
+#define  LOG_LOCAL_LEVEL ESP_LOG_NONE
+
 static const char *TAG = "prm";
 
 typedef struct {

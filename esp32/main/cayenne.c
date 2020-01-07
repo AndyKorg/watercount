@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <sdkconfig.h>
+#include <time.h>
 #include "esp_log.h"
 #include "nvs.h"
 
@@ -50,6 +51,7 @@ param_t params[PARAMS_COUNT] = {	// @formatter:off
 		};
 
 cayenne_cb_t reciveTopic;
+time_t dtSend = -1;	//undefined time
 
 char*
 CayenneTopic(const char *type, const char *channal) {
@@ -254,6 +256,7 @@ esp_err_t Cayenne_event_handler(esp_mqtt_event_handle_t event) {
 		ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
 		break;
 	case MQTT_EVENT_PUBLISHED:
+		dtSend = time(NULL);
 		ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
 		break;
 	case MQTT_EVENT_DATA:
@@ -324,6 +327,10 @@ esp_err_t Cayenne_app_stop(void) { //Close all connect, return ESP_OK - closed p
 		ret = esp_mqtt_client_stop(mqtt_client); //TODO: отписку сделать
 	}
 	return ret;
+}
+
+time_t CayenneGetLastLinkDate(void){
+	return dtSend;
 }
 
 esp_err_t Cayenne_Init(void) {

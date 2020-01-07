@@ -40,9 +40,11 @@ wifi_sta_config_t wifi_sta_param;
 static EventGroupHandle_t wifi_event_group;
 
 const int WIFI_PROCESS_BIT = BIT0,			//Wifi запущен
-		WIFI_PROCESS_AP_BIT = BIT1,			//Режим AP включен, дейстивтельно если WIFI_PROCESS_BIT = 1
-		CLIENT_CONNECTED = BIT3,			//Есть подключенные клиенты
-		WIFI_GOT_IP_BIT = BIT4;				//Есть подключение к сети
+		WIFI_PROCESS_AP_BIT = BIT1,			//Mode AP is on, only if WIFI_PROCESS_BIT = 1
+		CLIENT_CONNECTED = BIT3,			//Clients connected to AP
+		WIFI_GOT_IP_BIT = BIT4,				//ST connected to AP
+		WIFI_PARAM_EXISTS = BIT5			//ST parameters is exists
+		;
 
 esp_err_t read_wifi_param(const paramName_t paramName, char *value, size_t maxLen) {
 
@@ -52,9 +54,13 @@ esp_err_t read_wifi_param(const paramName_t paramName, char *value, size_t maxLe
 esp_err_t read_wifi_params(void) {
 
 	ESP_LOGI(TAG, "wifi param read");
+	xEventGroupClearBits(wifi_event_group, WIFI_PARAM_EXISTS);
 	esp_err_t ret = read_nvs_param(STORAGE_WIFI_PARAM, STA_PARAM_SSID_NAME, (char*) wifi_sta_param.ssid, 32);
 	if (ret == ESP_OK) {
 		ret = read_nvs_param(STORAGE_WIFI_PARAM, STA_PARAM_PASWRD_NAME, (char*) wifi_sta_param.password, 32);
+		if (ret == ESP_OK){
+			xEventGroupSetBits(wifi_event_group, WIFI_PARAM_EXISTS);
+		}
 	}
 	return ret;
 }
@@ -161,16 +167,20 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
 	}
 }
 
-bool wifi_isOn() {
+bool wifi_isOn(void) {
 	return (xEventGroupGetBitsFromISR(wifi_event_group) & WIFI_PROCESS_BIT);
 }
 
-bool wifi_AP_isOn() {
+bool wifi_AP_isOn(void) {
 	return (xEventGroupGetBitsFromISR(wifi_event_group) & WIFI_PROCESS_AP_BIT);
 }
 
-bool wifi_ap_count_client() {
+bool wifi_ap_count_client(void) {
 	return (xEventGroupGetBitsFromISR(wifi_event_group) & CLIENT_CONNECTED);
+}
+
+bool wifi_paramIsEmpty(void){
+	return (xEventGroupGetBitsFromISR(wifi_event_group) & WIFI_PARAM_EXISTS);
 }
 
 void wifi_init(wifi_mode_t mode) {
@@ -253,7 +263,7 @@ void task_ota_check(void *pvParameters) {
 void wifi_init_param(void) {
 
 	wifi_event_group = xEventGroupCreate();
-	xEventGroupClearBits(wifi_event_group, WIFI_PROCESS_AP_BIT | WIFI_PROCESS_BIT | WIFI_GOT_IP_BIT | CLIENT_CONNECTED);
+	xEventGroupClearBits(wifi_event_group, WIFI_PROCESS_AP_BIT | WIFI_PROCESS_BIT | WIFI_GOT_IP_BIT | CLIENT_CONNECTED | WIFI_PARAM_EXISTS);
 	if (paramReg(STA_PARAM_SSID_NAME, 32, read_wifi_param, write_wifi_param, save_wifi_params) == ESP_OK) {
 		paramReg(STA_PARAM_PASWRD_NAME, 64, read_wifi_param, write_wifi_param, save_wifi_params);
 	}

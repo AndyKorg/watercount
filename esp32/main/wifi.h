@@ -20,11 +20,12 @@
 #define OTA_CHECK_PERIOD_MIN	(24*60)					//Period checked update application, minute
 
 void wifi_init_param(void);								//Read WiFi parameters, WiFi transmitter no start!
-esp_err_t save_wifi_params(void);
+//esp_err_t save_wifi_params(void);
 void wifi_init(wifi_mode_t mode);						//start WiFI transmitter
-//State WiFI
-bool wifi_isOn();										//WiFI transmitter is on
-bool wifi_AP_isOn();									//AP mode is on, if wifi_isOn() != 0 only
-bool wifi_ap_count_client();							//number of connected clients in AP mode
+
+bool wifi_paramIsEmpty(void);								//WiFI ST parameters is empty
+bool wifi_isOn(void);										//WiFI transmitter is on
+bool wifi_AP_isOn(void);									//AP mode is on, if wifi_isOn() != 0 only
+bool wifi_ap_count_client(void);							//number of connected clients in AP mode
 
 #endif /* MAIN_WIFI_H_ */

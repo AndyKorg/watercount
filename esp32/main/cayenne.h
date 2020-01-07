@@ -9,6 +9,7 @@
 #define APP_WEB_INCLUDE_CAYENNE_H_
 
 #include <stddef.h>
+#include <time.h>
 #include "mqtt_client.h"
 
 #define CAYENN_MAX_LEN		64		//maximum length identificator
@@ -135,5 +136,6 @@ esp_err_t cayenne_reg(uint8_t chanal, cayenne_cb_t func);	//registre event on ca
 esp_err_t CayenneUpdateActuator(const uint8_t chanal, const uint32_t value);//update value after event dashboard
 //char* CayenneTopic(const char *type, const char *channal);	//create string topic
 esp_err_t CayenneChangeInteger(const uint8_t chanal, const char *sensorType, const uint32_t value);	//Send integer value
+time_t CayenneGetLastLinkDate(void);						//last date link to broker
 
 #endif /* APP_WEB_INCLUDE_CAYENNE_H_ */
