@@ -23,5 +23,7 @@ extern uint32_t countWater;//TODO: move to ulp_main
 esp_err_t init_ulp_program(void);
 void start_ulp_program(void);
 void set_ulp_SleepPeriod(uint32_t second);
+uint32_t get_sleepMode(void);
+void set_sleepMode(uint32_t mode);
 
 #endif /* MAIN_ULP_SENSOR_H_ */

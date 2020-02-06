@@ -14,7 +14,7 @@
 #define EPD_DC_PIN			GPIO_NUM_27		//Data/Command control pin (High for data, and low for command)
 #define EPD_SPI_HOST		VSPI_HOST		//Data/Command control pin (High for data, and low for command)
 #define EPD_BUSY_PIN		GPIO_NUM_25		//Busy pin (high is busy)
-#define EPD_POWER_EN		GPIO_NUM_2		//power display
+#define EPD_POWER_PIN		GPIO_NUM_2		//power display
 
 #define EPD_DMA_CHAN    	2				//Only 1 or 2, channel 0 has limitations
 #define EPD_NUM_MOSI		GPIO_NUM_23
@@ -23,63 +23,54 @@
 
 spi_device_handle_t spi;
 
-void lcd_setup_pin(void) {
-	//power pin screen
-	gpio_set_direction(EPD_POWER_EN, GPIO_MODE_OUTPUT);
-	gpio_pulldown_en(EPD_POWER_EN); // todo: off if external resistance
-	gpio_pullup_dis(EPD_POWER_EN);
-	rtc_gpio_init(EPD_POWER_EN);
-	rtc_gpio_set_direction(EPD_POWER_EN, RTC_GPIO_MODE_OUTPUT_ONLY);
-	rtc_gpio_pulldown_en(EPD_POWER_EN);
-	rtc_gpio_pullup_dis(EPD_POWER_EN);
-	rtc_gpio_set_level(EPD_POWER_EN, 0); //in sleep mode is off
-
-	//reset pin
-	gpio_set_direction(EPD_RST_PIN, GPIO_MODE_OUTPUT);
-	rtc_gpio_deinit(EPD_RST_PIN);
-
-	//Busy pin
-	gpio_set_direction(EPD_BUSY_PIN, GPIO_MODE_INPUT);
-	gpio_pulldown_dis(EPD_BUSY_PIN);
-	gpio_pullup_dis(EPD_BUSY_PIN);
-	rtc_gpio_deinit(EPD_BUSY_PIN);
-
-	//dc pin
-	gpio_set_direction(EPD_DC_PIN, GPIO_MODE_OUTPUT);
-
-}
-
-void lcd_power(lcd_pwr_mode_t mode) {
+void lcd_setup_pin(lcd_pwr_mode_t mode) {
 
 	if (mode == LCD_POWER_OFF) {
+		//Busy
 		gpio_set_direction(EPD_BUSY_PIN, GPIO_MODE_INPUT);
 		gpio_pulldown_dis(EPD_BUSY_PIN);
 		gpio_pullup_dis(EPD_BUSY_PIN);
 		while (lcd_ready() != ESP_OK) {
 			vTaskDelay(20 / portTICK_RATE_MS);
 		}
-		// in sleep mode
+		//Reset
 		rtc_gpio_init(EPD_RST_PIN);
 		rtc_gpio_set_direction(EPD_RST_PIN, RTC_GPIO_MODE_OUTPUT_ONLY);
 		rtc_gpio_pulldown_dis(EPD_RST_PIN);
 		rtc_gpio_pullup_en(EPD_RST_PIN);
 		rtc_gpio_set_level(EPD_RST_PIN, 1); //in sleep mode is off
 		rtc_gpio_hold_en(EPD_RST_PIN);
-
-		gpio_set_direction(EPD_POWER_EN, GPIO_MODE_OUTPUT);
-		gpio_pulldown_en(EPD_POWER_EN); // todo: off if external resistance
-		gpio_pullup_dis(EPD_POWER_EN);
-		gpio_set_level(EPD_POWER_EN, 0);
-		rtc_gpio_init(EPD_POWER_EN);
-		rtc_gpio_set_direction(EPD_POWER_EN, RTC_GPIO_MODE_OUTPUT_ONLY);
-		rtc_gpio_pulldown_en(EPD_POWER_EN);
-		rtc_gpio_pullup_dis(EPD_POWER_EN);
-		rtc_gpio_set_level(EPD_POWER_EN, 0); //in sleep mode is off
+		//Power
+		gpio_set_level(EPD_POWER_PIN, 0);
+		rtc_gpio_init(EPD_POWER_PIN);
+		rtc_gpio_set_direction(EPD_POWER_PIN, RTC_GPIO_MODE_OUTPUT_ONLY);
+		rtc_gpio_pulldown_en(EPD_POWER_PIN);
+		rtc_gpio_pullup_dis(EPD_POWER_PIN);
+		rtc_gpio_set_level(EPD_POWER_PIN, 0); //in sleep mode is off
 
 	} else {
-		gpio_set_level(EPD_POWER_EN, 1);
+		//Power
+		gpio_set_direction(EPD_POWER_PIN, GPIO_MODE_OUTPUT);
+		gpio_pulldown_en(EPD_POWER_PIN); // todo: off if external resistance
+		gpio_pullup_dis(EPD_POWER_PIN);
+		gpio_set_level(EPD_POWER_PIN, 1);
+		rtc_gpio_deinit(EPD_POWER_PIN);
+		/*	rtc_gpio_init(EPD_POWER_EN);
+		 rtc_gpio_set_direction(EPD_POWER_EN, RTC_GPIO_MODE_OUTPUT_ONLY);
+		 rtc_gpio_pulldown_en(EPD_POWER_EN);
+		 rtc_gpio_pullup_dis(EPD_POWER_EN);
+		 rtc_gpio_set_level(EPD_POWER_EN, 0); //in sleep mode is off
+		 */
+		//reset pin
+		gpio_set_direction(EPD_RST_PIN, GPIO_MODE_OUTPUT);
 		rtc_gpio_deinit(EPD_RST_PIN);
+		//Busy pin
+		gpio_set_direction(EPD_BUSY_PIN, GPIO_MODE_INPUT);
+		gpio_pulldown_dis(EPD_BUSY_PIN);
+		gpio_pullup_dis(EPD_BUSY_PIN);
 		rtc_gpio_deinit(EPD_BUSY_PIN);
+		//dc pin
+		gpio_set_direction(EPD_DC_PIN, GPIO_MODE_OUTPUT);
 	}
 }
 
@@ -140,17 +131,17 @@ void lcd_reset(void) {
 
 esp_err_t IfInit(const uint16_t max_buf_size) {
 
-	lcd_setup_pin();
-	lcd_power(LCD_POWER_ON);
+	lcd_setup_pin(LCD_POWER_ON);
 	//SPI Bus setting
 	esp_err_t ret;
-	spi_bus_config_t buscfg = { // @formatter:off
+	// @formatter:off
+	spi_bus_config_t buscfg = {
         .miso_io_num = -1,
         .mosi_io_num = EPD_NUM_MOSI,
         .sclk_io_num = EPD_NUM_CLK,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
-        .max_transfer_sz = max_buf_size+4,
+        .max_transfer_sz = max_buf_size+4, 				//Maximum transfer size, in bytes. Defaults to 4094 if 0
 			};
 	spi_device_interface_config_t devcfg = {
 			.clock_speed_hz = 4 * 1000 * 1000,       	//Clock out at 4 MHz  - 125 us CLK
@@ -160,7 +151,7 @@ esp_err_t IfInit(const uint16_t max_buf_size) {
 			.pre_cb = dc_mode_cb,  						//Specify pre-transfer callback to handle D/C line
 			};
 	// @formatter:on
-		//Initialize the SPI bus
+	//Initialize the SPI bus
 	ret = spi_bus_initialize(EPD_SPI_HOST, &buscfg, EPD_DMA_CHAN);
 	ESP_ERROR_CHECK(ret);
 	//Attach the LCD to the SPI bus

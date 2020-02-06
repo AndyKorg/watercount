@@ -36,6 +36,12 @@
 										} while(0)
 
 
+#define SecondSet(sec)					do{\
+											ulp_secondLo = sec & UINT16_MAX;\
+											ulp_secondHi = (sec>>16) & UINT16_MAX;\
+										} while(0)
+#define SecondGet()						((ulp_secondLo & UINT16_MAX) | ((ulp_secondHi <<16) & (UINT16_MAX << 16)))
+
 extern const uint8_t ulp_main_bin_start[] asm("_binary_ulp_main_bin_start");
 extern const uint8_t ulp_main_bin_end[] asm("_binary_ulp_main_bin_end");
 
@@ -59,6 +65,7 @@ esp_err_t init_ulp_program(void) {
 				adc1_ulp_enable();
 				ESP_LOGI(TAG, "ADC config OK");
 				/* Set low and high thresholds*/
+				//TODO: get parameters adc sensor
 				ulp_high_max_thr_sensor = 2000;
 				ulp_high_thr_sensor = 1900;
 				ulp_low_min_thr_sensor = 1500;
@@ -67,9 +74,10 @@ esp_err_t init_ulp_program(void) {
 
 				ulp_ticks_per_second = TicPerSec;
 				ulp_tics_count = 0;
-				ulp_second = 0;
+				SecondSet(0);
 
 				SleepPeriodSecSet(0);//startup setting 0
+				set_sleepMode(0);
 
 				sensor_power_mode();
 				ulp_set_wakeup_period(0, SleepPeriod);
@@ -79,7 +87,7 @@ esp_err_t init_ulp_program(void) {
 				 * GPIO12 may be pulled high to select flash voltage.
 				 */
 				rtc_gpio_isolate(GPIO_NUM_12);
-				rtc_gpio_isolate(GPIO_NUM_15);
+//				rtc_gpio_isolate(GPIO_NUM_15);
 				esp_deep_sleep_disable_rom_logging(); // suppress boot messages
 				return ESP_OK;
 			}
@@ -92,7 +100,7 @@ void set_ulp_SleepPeriod(uint32_t second){
 	SleepPeriodSecSet(second);
 
 	ESP_LOGI(TAG, "sleep period %x%x", ulp_sleep_countHi_tics, ulp_sleep_countLo_tics);
-	ESP_LOGI(TAG, "seconds %d tics_count %d", ulp_second & UINT16_MAX, ulp_tics_count & UINT16_MAX);
+	ESP_LOGI(TAG, "seconds %d tics_count %d", SecondGet(), ulp_tics_count & UINT16_MAX);
 	ESP_LOGI(TAG, "sensor level %d current %d state %d", ulp_previous_sensor_value & UINT16_MAX, ulp_last_result_sensor & UINT16_MAX,
 			ulp_sensor_state & UINT16_MAX);
 	ESP_LOGI(TAG, "sensor counter %d", ulp_sensor_counter & UINT16_MAX);
@@ -105,4 +113,12 @@ void start_ulp_program(void) {
 	/* Start the program */
 	esp_err_t err = ulp_run(&ulp_entry - RTC_SLOW_MEM);
 	ESP_ERROR_CHECK(err);
+}
+
+uint32_t get_sleepMode(void){
+	return ulp_sleep_mode;
+}
+
+void set_sleepMode(uint32_t mode){
+	ulp_sleep_mode = mode;
 }

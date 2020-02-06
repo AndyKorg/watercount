@@ -37,7 +37,7 @@ static const char *TAG = "WIFI";
 wifi_sta_config_t wifi_sta_param;
 
 /* FreeRTOS event group to signal when we are connected*/
-static EventGroupHandle_t wifi_event_group;
+static EventGroupHandle_t wifi_event_group = NULL;
 
 const int WIFI_PROCESS_BIT = BIT0,			//Wifi запущен
 		WIFI_PROCESS_AP_BIT = BIT1,			//Mode AP is on, only if WIFI_PROCESS_BIT = 1
@@ -58,7 +58,7 @@ esp_err_t read_wifi_params(void) {
 	esp_err_t ret = read_nvs_param(STORAGE_WIFI_PARAM, STA_PARAM_SSID_NAME, (char*) wifi_sta_param.ssid, 32);
 	if (ret == ESP_OK) {
 		ret = read_nvs_param(STORAGE_WIFI_PARAM, STA_PARAM_PASWRD_NAME, (char*) wifi_sta_param.password, 32);
-		if (ret == ESP_OK){
+		if (ret == ESP_OK) {
 			xEventGroupSetBits(wifi_event_group, WIFI_PARAM_EXISTS);
 		}
 	}
@@ -168,19 +168,31 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
 }
 
 bool wifi_isOn(void) {
-	return (xEventGroupGetBitsFromISR(wifi_event_group) & WIFI_PROCESS_BIT);
+	if (wifi_event_group) {
+		return (xEventGroupGetBitsFromISR(wifi_event_group) & WIFI_PROCESS_BIT);
+	}
+	return false;
 }
 
 bool wifi_AP_isOn(void) {
-	return (xEventGroupGetBitsFromISR(wifi_event_group) & WIFI_PROCESS_AP_BIT);
+	if (wifi_event_group) {
+		return (xEventGroupGetBitsFromISR(wifi_event_group) & WIFI_PROCESS_AP_BIT);
+	}
+	return false;
 }
 
 bool wifi_ap_count_client(void) {
-	return (xEventGroupGetBitsFromISR(wifi_event_group) & CLIENT_CONNECTED);
+	if (wifi_event_group) {
+		return (xEventGroupGetBitsFromISR(wifi_event_group) & CLIENT_CONNECTED);
+	}
+	return false;
 }
 
-bool wifi_paramIsEmpty(void){
-	return (xEventGroupGetBitsFromISR(wifi_event_group) & WIFI_PARAM_EXISTS);
+bool wifi_paramIsEmpty(void) {
+	if (wifi_event_group) {
+		return (xEventGroupGetBitsFromISR(wifi_event_group) & WIFI_PARAM_EXISTS);
+	}
+	return false;
 }
 
 void wifi_init(wifi_mode_t mode) {

@@ -44,6 +44,7 @@ unsigned char epdInit(const unsigned char *lut) {
  *          You can use Epd::Init() to awaken
  */
 void epdSleep() {
+	//TODO: Check initalise spi interface
 	lcd_cmd(DEEP_SLEEP_MODE, NULL, 0);
 	epdWaitUntilIdle();
 }

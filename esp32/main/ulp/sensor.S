@@ -86,8 +86,11 @@ ticks_per_second:
 tics_count:
 	.long 0
 	/* second counter 32 bit - two 16 bit counter*/
-	.global second
-second:
+	.global secondLo
+secondLo:
+	.long 0
+	.global secondHi
+secondHi:
 	.long 0
 
 /* sleep timer */
@@ -97,6 +100,10 @@ sleep_countLo_tics:
 	.long 0
 	.global sleep_countHi_tics
 sleep_countHi_tics:
+	.long 0
+	/* mode for cpu, not used for ulp */
+	.global sleep_mode
+sleep_mode:
 	.long 0
 
 	/* Code goes into .text section */
@@ -205,10 +212,17 @@ sensor_state_set:
 	ld r0, r3, 0
 	jumpr check_sleep_period, 0, gt
 	/* second add */
-	move r2, second
+	move r2, secondLo
 	ld r0, r2, 0
 	add r0, r0, 1
 	st r0, r2, 0
+	jumpr second_add_end, 0, gt
+	move r2, secondHi
+	ld r0, r2, 0
+	add r0, r0, 1
+	st r0, r2, 0
+second_add_end:
+
 	/* one second, start new one second*/
 	move r2, ticks_per_second
 	ld r0, r2, 0

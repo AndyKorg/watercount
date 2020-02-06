@@ -32,7 +32,7 @@ uint32_t countWater;		//TODO: move to ulp_main
 
 //just turn off the display, because inclusion is controlled by this module.
 void displayPowerOff(void){
-	lcd_power(LCD_POWER_OFF);
+	lcd_setup_pin(LCD_POWER_OFF);
 }
 
 inline void twoDigit(int value, char *str, size_t size) {
@@ -195,7 +195,7 @@ int digitalShowDebug(char *value) {
 void displayShow(void) {
 	char s[100];
 
-	lcd_power(LCD_POWER_ON);
+	lcd_setup_pin(LCD_POWER_ON);
 
 	//Заряд батареи
 	epdClear(UNCOLORED);
