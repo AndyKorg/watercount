@@ -21,9 +21,11 @@ extern uint32_t countWater;//TODO: move to ulp_main
  * RTC memory and configure the ADC and e.t.
  */
 esp_err_t init_ulp_program(void);
-void start_ulp_program(void);
+esp_err_t start_ulp_program(void);
 void set_ulp_SleepPeriod(uint32_t second);
-uint32_t get_sleepMode(void);
+uint32_t get_wakeUpCount(void);
 void set_sleepMode(uint32_t mode);
+uint32_t get_attemptAP(void);
+void set_attemptAP(uint32_t attempt);
 
 #endif /* MAIN_ULP_SENSOR_H_ */

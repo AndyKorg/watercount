@@ -101,9 +101,13 @@ sleep_countLo_tics:
 	.global sleep_countHi_tics
 sleep_countHi_tics:
 	.long 0
-	/* mode for cpu, not used for ulp */
-	.global sleep_mode
-sleep_mode:
+	/* wake up count, not used for ulp */
+	.global wake_up_count
+wake_up_count:
+	.long 0
+	/* attempt AP mode start, not used for ulp */
+	.global attemptAP
+attemptAP:
 	.long 0
 
 	/* Code goes into .text section */

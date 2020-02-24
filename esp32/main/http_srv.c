@@ -194,7 +194,10 @@ esp_err_t parse_query(httpd_req_t *req) {
 		while (pair_buf) {
 			paramName = strtok_r(pair_buf, "=", &value_ptr);
 			if (paramName) {
-				val = strtok_r(NULL, "=", &value_ptr);
+				val = value_ptr;
+				if (*value_ptr) {
+					val = strtok_r(NULL, "=", &value_ptr);
+				}
 				ESP_LOGI(TAG, "param query = %s val = %s", paramName, val);
 				if (paramWrite(paramName, val, &saveFunc) == ESP_OK) {
 					if (saveFuncPrev == NULL) {

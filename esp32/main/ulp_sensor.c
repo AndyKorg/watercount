@@ -76,9 +76,6 @@ esp_err_t init_ulp_program(void) {
 				ulp_tics_count = 0;
 				SecondSet(0);
 
-				SleepPeriodSecSet(0);//startup setting 0
-				set_sleepMode(0);
-
 				sensor_power_mode();
 				ulp_set_wakeup_period(0, SleepPeriod);
 
@@ -109,16 +106,23 @@ void set_ulp_SleepPeriod(uint32_t second){
 	sensor_power_mode(); // repair setting power sensor pin
 }
 
-void start_ulp_program(void) {
-	/* Start the program */
-	esp_err_t err = ulp_run(&ulp_entry - RTC_SLOW_MEM);
-	ESP_ERROR_CHECK(err);
+esp_err_t start_ulp_program(void) {
+	return ulp_run(&ulp_entry - RTC_SLOW_MEM);
 }
 
-uint32_t get_sleepMode(void){
-	return ulp_sleep_mode;
+uint32_t get_wakeUpCount(void){
+	return ulp_wake_up_count;
 }
 
-void set_sleepMode(uint32_t mode){
-	ulp_sleep_mode = mode;
+void set_wakeUpCount(uint32_t mode){
+	ulp_wake_up_count = mode;
+}
+
+RTC_SLOW_ATTR uint32_t attemptAp;
+
+uint32_t get_attemptAP(void){
+	return attemptAp;
+}
+void set_attemptAP(uint32_t attempt){
+	attemptAp = attempt;
 }
