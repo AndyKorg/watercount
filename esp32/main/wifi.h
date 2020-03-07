@@ -21,7 +21,7 @@
 
 void wifi_init_param(void);								//Read WiFi parameters, WiFi transmitter no start!
 //esp_err_t save_wifi_params(void);
-void wifi_init(wifi_mode_t mode);						//start WiFI transmitter
+void wifi_init(wifi_mode_t mode);	//start WiFI transmitter
 
 bool wifi_paramIsEmpty(void);							//WiFI ST parameters is empty
 bool wifi_isOn(void);									//WiFI transmitter is on

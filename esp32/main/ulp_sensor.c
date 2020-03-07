@@ -23,18 +23,20 @@
 //power enable sensor, see adc.s
 #define SENSOR_POWER_EN					GPIO_NUM_4
 
-/* Set ULP wake up period */
-#define SLEEP20MS	20000				//20 ms
-#define SLEEP100MS	100000				//0.1 second
-#define SLEEP10S	10000000			//10 second
+/* period rtc */
+#define SLEEP1MS	1000				//1 ms for internal 150kHz RC oscillator
+#define SLEEP100MS	(SLEEP1MS*100)		//0.1 second
+#define SLEEP1S		(SLEEP1MS*1000)		//1 second
+#define SLEEP10S	(SLEEP1S*10)		//10 second
+
 //rtc timer period
-#define SleepPeriod	SLEEP100MS
-#define TicPerSec	(1000000/SleepPeriod)
+#define SleepPeriod	SLEEP100MS			//one tick sleep
+#define TicPerSec	(10*SleepPeriod)
+
 #define SleepPeriodSecSet(sec)			do{\
 											ulp_sleep_countHi_tics = (sec * TicPerSec) & UINT16_MAX;\
 											ulp_sleep_countLo_tics = ((sec * TicPerSec) >>16) & UINT16_MAX;\
 										} while(0)
-
 
 #define SecondSet(sec)					do{\
 											ulp_secondLo = sec & UINT16_MAX;\
@@ -42,21 +44,34 @@
 										} while(0)
 #define SecondGet()						((ulp_secondLo & UINT16_MAX) | ((ulp_secondHi <<16) & (UINT16_MAX << 16)))
 
+#define CounterGet()					((ulp_sensor_countLo & UINT16_MAX) | ((ulp_sensor_countHi <<16) & (UINT16_MAX << 16)))
+#define CounterSet(val)					do{\
+											ulp_sensor_countLo = val & UINT16_MAX;\
+											ulp_sensor_countHi = (val>>16) & UINT16_MAX;\
+										} while(0)
+
 extern const uint8_t ulp_main_bin_start[] asm("_binary_ulp_main_bin_start");
 extern const uint8_t ulp_main_bin_end[] asm("_binary_ulp_main_bin_end");
 
 static const char *TAG = "ULP";
 
-void sensor_power_mode(void) {
-//sensor power enabled
+uint32_t sensor_count(uint32_t *newValue){
+	if (newValue){
+		CounterSet(*newValue);
+	}
+	return CounterGet();
+}
+
+void sensor_power_pin_enable(void) {
+	//sensor power enabled for controlling from ulp
 	rtc_gpio_init(SENSOR_POWER_EN);
 	rtc_gpio_set_direction(SENSOR_POWER_EN, RTC_GPIO_MODE_OUTPUT_ONLY);
-	rtc_gpio_pulldown_en(SENSOR_POWER_EN);
-	rtc_gpio_pullup_dis(SENSOR_POWER_EN);
-	//rtc_gpio_hold_en(SENSOR_POWER_EN);
+	rtc_gpio_pulldown_dis(SENSOR_POWER_EN);
+	rtc_gpio_pullup_en(SENSOR_POWER_EN);
 }
 
 esp_err_t init_ulp_program(void) {
+	esp_err_t ret = ESP_ERR_NOT_FOUND;
 	if (ulp_load_binary(0, ulp_main_bin_start, (ulp_main_bin_end - ulp_main_bin_start) / sizeof(uint32_t)) == ESP_OK) {
 		ESP_LOGI(TAG, "ADC start");
 		if ((adc1_config_channel_atten(SENSOR_NAMUR_CHANAL, SENSOR_NAMUR_ATTEN) == ESP_OK)
@@ -76,53 +91,30 @@ esp_err_t init_ulp_program(void) {
 				ulp_tics_count = 0;
 				SecondSet(0);
 
-				sensor_power_mode();
-				ulp_set_wakeup_period(0, SleepPeriod);
+				sensor_power_pin_enable();
+				ret = ulp_set_wakeup_period(0, SleepPeriod);
 
-				/* Disconnect GPIO12 and GPIO15 to remove current drain through
-				 * pullup/pulldown resistors.
-				 * GPIO12 may be pulled high to select flash voltage.
-				 */
-				rtc_gpio_isolate(GPIO_NUM_12);
-//				rtc_gpio_isolate(GPIO_NUM_15);
 				esp_deep_sleep_disable_rom_logging(); // suppress boot messages
-				return ESP_OK;
 			}
 		}
 	}
-	return ESP_ERR_NOT_FOUND;
+	return ret;
 }
 
-void set_ulp_SleepPeriod(uint32_t second){
+void set_ulp_SleepPeriod(uint32_t second) {
 	SleepPeriodSecSet(second);
 
 	ESP_LOGI(TAG, "sleep period %x%x", ulp_sleep_countHi_tics, ulp_sleep_countLo_tics);
 	ESP_LOGI(TAG, "seconds %d tics_count %d", SecondGet(), ulp_tics_count & UINT16_MAX);
 	ESP_LOGI(TAG, "sensor level %d current %d state %d", ulp_previous_sensor_value & UINT16_MAX, ulp_last_result_sensor & UINT16_MAX,
 			ulp_sensor_state & UINT16_MAX);
-	ESP_LOGI(TAG, "sensor counter %d", ulp_sensor_counter & UINT16_MAX);
+	ESP_LOGI(TAG, "sensor counter %d", sensor_count(NULL));
 	ESP_LOGI(TAG, "bat %d", ulp_batarey_voltage & UINT16_MAX);
 
-	sensor_power_mode(); // repair setting power sensor pin
+	sensor_power_pin_enable(); // repair setting power sensor pin
 }
 
 esp_err_t start_ulp_program(void) {
 	return ulp_run(&ulp_entry - RTC_SLOW_MEM);
 }
 
-uint32_t get_wakeUpCount(void){
-	return ulp_wake_up_count;
-}
-
-void set_wakeUpCount(uint32_t mode){
-	ulp_wake_up_count = mode;
-}
-
-RTC_SLOW_ATTR uint32_t attemptAp;
-
-uint32_t get_attemptAP(void){
-	return attemptAp;
-}
-void set_attemptAP(uint32_t attempt){
-	attemptAp = attempt;
-}

@@ -18,7 +18,11 @@
 #include "cayenne.h"
 #include "params.h"
 
-static const char *TAG = "MQTT-MY";
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+
+static const char *TAG = "CAYEN";
 
 #define STORAGE_CAY_PARAM 		"cayen_prm"	//cayenne parameters storage
 
@@ -50,8 +54,10 @@ param_t params[PARAMS_COUNT] = {	// @formatter:off
 		// @formatter:on
 		};
 
-cayenne_cb_t reciveTopic;
-time_t dtSend = -1;	//undefined time
+cay_reciv_cb_t reciveTopic, pubSuccess;	//callback function for recive data from broker and receive answer from published
+cay_send_cb_t sendData;	//callback function for send data to broker.
+
+time_t dtSend = -1;			//undefined time
 
 char*
 CayenneTopic(const char *type, const char *channal) {
@@ -73,6 +79,12 @@ CayenneTopic(const char *type, const char *channal) {
 		}
 	}
 	return msg;
+}
+
+esp_err_t Cayenne_send_reg(cay_send_cb_t send_cb, cay_reciv_cb_t answer_cb){
+	sendData = send_cb;
+	pubSuccess = answer_cb;
+	return ESP_OK;
 }
 
 esp_err_t read_cay_param(const paramName_t paramName, char *value, size_t maxLen) {
@@ -133,7 +145,7 @@ esp_err_t save_cay_params(void) {
 	return ret;
 }
 
-esp_err_t CayenneChangeInteger(const uint8_t chanal, const char *sensorType, const uint32_t value) {
+esp_err_t CayenneChangeInteger(const uint8_t chanal, const char *sensorType, const uint32_t value, const int qos) {
 
 	esp_err_t ret = ESP_ERR_INVALID_STATE;
 	if (mqtt_client) {
@@ -146,7 +158,7 @@ esp_err_t CayenneChangeInteger(const uint8_t chanal, const char *sensorType, con
 		char *result = calloc(strlen(sensorType) + VALUE_LEN, sizeof(char));
 		sprintf(result, sensorType, value);
 		ESP_LOGI(TAG, "pub topic = %s result = %s", topic, result);
-		if (esp_mqtt_client_publish(mqtt_client, topic, result, strlen(result), MQTT_QOS_TYPE_AT_MOST_ONCE, MQTT_RETAIN_OFF) >= 0)
+		if (esp_mqtt_client_publish(mqtt_client, topic, result, strlen(result), qos, MQTT_RETAIN_OFF) >= 0)
 			ret = ESP_OK;
 		free(result);
 		free(topic);
@@ -226,7 +238,7 @@ esp_err_t CayenneUpdateActuator(const uint8_t chanal, const uint32_t value) {
 	return ret;
 }
 
-esp_err_t cayenne_reg(uint8_t chanal, cayenne_cb_t func) {	//Регистрация реакции на событие в канале
+esp_err_t Cayenne_reciv_reg(uint8_t chanal, cay_reciv_cb_t func) {	//Регистрация реакции на событие в канале
 	reciveTopic = func;
 	return ESP_OK;
 }
@@ -242,8 +254,23 @@ esp_err_t Cayenne_event_handler(esp_mqtt_event_handle_t event) {
 		topic = CayenneTopic(MQTT_CAYENNE_TYPE_SYS_MODEL, NULL);
 		ESP_LOGI(TAG, "topic = %s", topic);
 		ESP_LOGI(TAG, "dev = %s", cayenn_cfg.deviceName);
-		int msg_id = esp_mqtt_client_publish(client, topic, cayenn_cfg.deviceName, strlen(cayenn_cfg.deviceName), MQTT_QOS_TYPE_AT_MOST_ONCE, MQTT_RETAIN_OFF);
-		ESP_LOGI(TAG, "connect sent publish successful, msg_id = %x", msg_id);
+		if (esp_mqtt_client_publish(client, topic, cayenn_cfg.deviceName, strlen(cayenn_cfg.deviceName), MQTT_QOS_TYPE_AT_MOST_ONCE, MQTT_RETAIN_OFF) >= 0) {
+			ESP_LOGI(TAG, "connect sent publish successful");
+			if (sendData) {
+				ESP_LOGI(TAG, "cb send start");
+				uint8_t chanal;
+				char *sensorType = NULL;
+				uint32_t value;
+				if (sendData(&chanal, &sensorType, &value) == ESP_OK) {
+					ESP_LOGI(TAG, "sens type %s", sensorType);
+					if (sensorType && strlen(sensorType) > 0) {
+						ESP_LOGI(TAG, "pub start");
+						CayenneChangeInteger(chanal, sensorType, value, MQTT_QOS_TYPE_AT_LEAST_ONCE);
+						free(sensorType);
+					}
+				}
+			}
+		}
 		//CayenneSubscribe(&cayenn_cfg, PARAM_CHANAL_LED_UPDATE);
 		break;
 	case MQTT_EVENT_DISCONNECTED:
@@ -255,9 +282,14 @@ esp_err_t Cayenne_event_handler(esp_mqtt_event_handle_t event) {
 	case MQTT_EVENT_UNSUBSCRIBED:
 		ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
 		break;
-	case MQTT_EVENT_PUBLISHED:
+	case MQTT_EVENT_PUBLISHED:	//Only if qos > MQTT_QOS_TYPE_AT_MOST_ONCE
 		dtSend = time(NULL);
 		ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
+		if (pubSuccess) {
+			int id_msg = event->msg_id;
+			ESP_LOGI(TAG, "cb pub start");
+			pubSuccess(id_msg);
+		}
 		break;
 	case MQTT_EVENT_DATA:
 		ESP_LOGI(TAG, "MQTT_EVENT_DATA");
@@ -271,7 +303,7 @@ esp_err_t Cayenne_event_handler(esp_mqtt_event_handle_t event) {
 			if (reciveTopic) {
 				int reciv = atoi(++comma);
 				ESP_LOGI(TAG, "led topic=%d", reciv);
-				reciveTopic(&reciv);
+				reciveTopic(reciv);
 			}
 		}
 		break;
@@ -329,7 +361,7 @@ esp_err_t Cayenne_app_stop(void) { //Close all connect, return ESP_OK - closed p
 	return ret;
 }
 
-time_t CayenneGetLastLinkDate(void){
+time_t CayenneGetLastLinkDate(void) {
 	return dtSend;
 }
 
@@ -342,5 +374,7 @@ esp_err_t Cayenne_Init(void) {
 			break;
 		}
 	}
+	sendData = NULL;
+	pubSuccess = NULL;
 	return read_cay_params();
 }

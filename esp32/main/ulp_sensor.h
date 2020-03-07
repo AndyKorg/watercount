@@ -15,7 +15,6 @@ typedef enum {
 } sensor_state_t;
 
 extern sensor_state_t alarmSensor;//TODO: move to ulp_main
-extern uint32_t countWater;//TODO: move to ulp_main
 
 /* This function is called once after power-on reset, to load ULP program into
  * RTC memory and configure the ADC and e.t.
@@ -23,9 +22,6 @@ extern uint32_t countWater;//TODO: move to ulp_main
 esp_err_t init_ulp_program(void);
 esp_err_t start_ulp_program(void);
 void set_ulp_SleepPeriod(uint32_t second);
-uint32_t get_wakeUpCount(void);
-void set_sleepMode(uint32_t mode);
-uint32_t get_attemptAP(void);
-void set_attemptAP(uint32_t attempt);
+uint32_t sensor_count(uint32_t *newValue);//if newValue is null then no set new value counter, only return current value
 
 #endif /* MAIN_ULP_SENSOR_H_ */

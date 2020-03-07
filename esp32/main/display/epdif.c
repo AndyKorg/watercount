@@ -5,6 +5,8 @@
 #include <string.h>
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
+#include "esp_log.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "epdif.h"
@@ -21,7 +23,17 @@
 #define EPD_NUM_CLK			GPIO_NUM_18
 #define EPD_NUM_CS			GPIO_NUM_5
 
+static const char *TAG = "epdif";
+
 spi_device_handle_t spi;
+
+void lcd_rtc_pin_down(gpio_num_t pin){
+	rtc_gpio_init(pin);
+	rtc_gpio_set_direction(pin, RTC_GPIO_MODE_INPUT_ONLY);
+	rtc_gpio_pullup_dis(pin);
+	rtc_gpio_pulldown_en(pin);
+	rtc_gpio_hold_en(pin);
+}
 
 void lcd_setup_pin(lcd_pwr_mode_t mode) {
 
@@ -33,21 +45,13 @@ void lcd_setup_pin(lcd_pwr_mode_t mode) {
 		while (lcd_ready() != ESP_OK) {
 			vTaskDelay(20 / portTICK_RATE_MS);
 		}
-		//Reset
-		rtc_gpio_init(EPD_RST_PIN);
-		rtc_gpio_set_direction(EPD_RST_PIN, RTC_GPIO_MODE_OUTPUT_ONLY);
-		rtc_gpio_pulldown_dis(EPD_RST_PIN);
-		rtc_gpio_pullup_en(EPD_RST_PIN);
-		rtc_gpio_set_level(EPD_RST_PIN, 1); //in sleep mode is off
-		rtc_gpio_hold_en(EPD_RST_PIN);
-		//Power
+		ESP_LOGI(TAG, "pin display sleep mode set");
+		//display power off
+		gpio_set_direction(EPD_POWER_PIN, GPIO_MODE_OUTPUT);
 		gpio_set_level(EPD_POWER_PIN, 0);
-		rtc_gpio_init(EPD_POWER_PIN);
-		rtc_gpio_set_direction(EPD_POWER_PIN, RTC_GPIO_MODE_OUTPUT_ONLY);
-		rtc_gpio_pulldown_en(EPD_POWER_PIN);
-		rtc_gpio_pullup_dis(EPD_POWER_PIN);
-		rtc_gpio_set_level(EPD_POWER_PIN, 0); //in sleep mode is off
-
+		lcd_rtc_pin_down(EPD_POWER_PIN);
+		lcd_rtc_pin_down(EPD_RST_PIN);//reset
+		lcd_rtc_pin_down(EPD_BUSY_PIN);//busy, after power down display!
 	} else {
 		//Power
 		gpio_set_direction(EPD_POWER_PIN, GPIO_MODE_OUTPUT);

@@ -14,30 +14,38 @@
 #include "display/epd1in54.h"//TODO: delete it, epdInit move to display!
 #include "display.h"
 
+#include "cayenne.h"
+
 #define STARTUP_MODE_PIN	GPIO_NUM_36	//start up mode: AP start or ST start
 #define SETTING_TIMEOUT_S	60
 #define APP_CORE_ID			(portNUM_PROCESSORS-1)
 
 #define SLEEP_PERIOD_S		10			//sleep period cpu,
-#define	DISPALY_PERIOD_S	10			//refresh display period
-#define WIFI_SEND_PERIOD_S	10			//send data period wifi
+#define	DISPALY_PERIOD_S	((1 * SLEEP_PERIOD_S)/SLEEP_PERIOD_S)		//refresh display period
+#define WIFI_SEND_PERIOD_S	((1 * SLEEP_PERIOD_S)/SLEEP_PERIOD_S)		//send data period wifi
 
 #define WIFI_AP_ATTEMPT_MAX	5			//The maximum number of attempts to start the AP.
 
+#define	WATERCOUNTER_CHANL	1			//Number channel from cloud
+
 typedef enum {
-	alarmSemafor, alarmSleepTask,
+	alarmSemafor, alarmSleepTask, alarmUlpStart
 } alarm_system_t;
 
 SemaphoreHandle_t sleepEnable; //ready to sleep
 
 static const char *TAG = "main";
 
+RTC_SLOW_ATTR uint32_t attemptAP_RTC; 		//count attempt mode AP
+RTC_SLOW_ATTR uint32_t wake_up_display_RTC;	//count wake up for display
+RTC_SLOW_ATTR uint32_t wake_up_wifi_st_RTC;	//count wake up for ST
+
 //wait and sleep
 void vSleepTask(void *vParameters) {
 
 	while (1) {
 		xSemaphoreTake(sleepEnable, ((SETTING_TIMEOUT_S*1000)/portTICK_RATE_MS));
-		if (wifi_ap_count_client()) {//client AP connect
+		if (wifi_ap_count_client()) {	//client AP connect
 			ESP_LOGI(TAG, "client AP is connected!");
 			continue;
 		}
@@ -66,13 +74,29 @@ void alarmOff(alarm_system_t alarm) {
 	esp_deep_sleep_start(); //system is off
 }
 
+esp_err_t sendCounter(uint8_t *chanal, char **sensorType, uint32_t *value) {
+	ESP_LOGI(TAG, "send start");
+	*sensorType = calloc(strlen(CAYENNE_COUNTER) + 12, sizeof(char)); //12 digit for uint32_t
+	if (sensorType) {
+		ESP_LOGI(TAG, "send value full");
+		*chanal = WATERCOUNTER_CHANL;
+		*value = sensor_count(NULL);
+		memcpy(*sensorType, CAYENNE_COUNTER, strlen(CAYENNE_COUNTER));
+		return ESP_OK;
+	}
+	ESP_LOGI(TAG, "send no memory");
+	return ESP_ERR_NO_MEM;
+}
+
+//published is ended, sleep enable
+esp_err_t pubEnd(int data) {
+	xSemaphoreGive(sleepEnable);
+	return ESP_OK;
+}
+
 void app_main(void) {
 
 	esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
-
-	bool ulpRun = false;
-
-	gpio_config_t io_conf;
 
 	//Initialize NVS
 	esp_err_t ret = nvs_flash_init();
@@ -83,9 +107,14 @@ void app_main(void) {
 	ESP_ERROR_CHECK(ret);
 
 	if (cause != ESP_SLEEP_WAKEUP_ULP) { //first start, ulp setting need
-		set_attemptAP(WIFI_AP_ATTEMPT_MAX);
+		attemptAP_RTC = WIFI_ANT_MODE_MAX;
+		wake_up_display_RTC = 0;
+		wake_up_wifi_st_RTC = 0;
 		init_ulp_program();
-		ulpRun = (start_ulp_program() == ESP_OK); //start ulp for sensor control
+		if (start_ulp_program() != ESP_OK) { //start ulp for sensor control
+			alarmOff(alarmUlpStart);
+			return;
+		}
 		ESP_LOGI(TAG, "first start!");
 	}
 
@@ -102,12 +131,11 @@ void app_main(void) {
 
 	gpio_set_direction(STARTUP_MODE_PIN, GPIO_MODE_INPUT);
 	if (gpio_get_level(STARTUP_MODE_PIN)) { //setting mode - wifi AP on and wait SETTING_TIMEOUT_S
-		ESP_LOGI(TAG, "ap attempt = %d", get_attemptAP());
-		uint32_t attemptAP = get_attemptAP();
-		if (attemptAP) { // check count attempt AP
+		ESP_LOGI(TAG, "ap attempt = %d", attemptAP_RTC);
+		if (attemptAP_RTC) { // check count attempt AP
 			//TODO: Show attempt to display
 			ESP_LOGI(TAG, "AP mode startup!");
-			set_attemptAP(attemptAP - 1);
+			attemptAP_RTC--;
 			wifi_init_param();
 			wifi_init(WIFI_MODE_AP);
 			epdInit(lut_full_update);			//start spi
@@ -115,77 +143,22 @@ void app_main(void) {
 			return;
 		}
 	}
-	uint32_t countWakeUp = get_wakeUpCount();
 	//start ST mode if parameter is set, or show problem and not start mode ST
-	ESP_LOGI(TAG, "continue start!");
-
-// од ниже оставил как пример
-	/*
-	 esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
-	 if (cause == ESP_SLEEP_WAKEUP_ULP) {
-	 ESP_LOGI("ULP", "ULP wakeup");
-	 uint32_t mode = get_sleepMode();
-	 if (mode++ == 3){
-	 io_conf.pin_bit_mask = GPIO_SEL_35;
-	 io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
-	 io_conf.mode = GPIO_MODE_INPUT;
-	 io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-	 io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
-	 ESP_ERROR_CHECK(gpio_config(&io_conf));
-	 if (gpio_get_level(GPIO_NUM_35)){
-	 epdInit(lut_full_update);//start spi
-	 displayInit();
-	 }
-	 displayShow();//вылетает тут
-	 mode = 0;
-	 ESP_LOGI("ULP", "display show");
-	 }
-	 set_sleepMode(mode);
-	 if (esp_sleep_enable_ulp_wakeup() == ESP_OK) {
-	 displayPowerOff();
-	 set_ulp_SleepPeriod(2);
-	 esp_deep_sleep_start();
-	 }
-	 } else {
-	 ESP_LOGI("ULP", "NOT ULP WAKEUP ----------------------");
-	 //Initialize NVS
-	 esp_err_t ret = nvs_flash_init();
-	 if (ret == ESP_ERR_NVS_NO_FREE_PAGES) {
-	 ESP_ERROR_CHECK(nvs_flash_erase());
-	 ret = nvs_flash_init();
-	 }
-	 ESP_ERROR_CHECK(ret);
-
-	 init_ulp_program();
-
-
-	 epdInit(lut_full_update);
-
-	 start_ulp_program(); //start ulp for sensor control
-
-	 wifi_init_param();
-
-	 if (gpio_get_level(STARTUP_MODE_PIN)) {
-	 ESP_LOGI("GPIO", "AP mode startup!");
-	 wifi_init(WIFI_MODE_AP);
-	 }
-	 else{
-	 ESP_LOGI("GPIO", "ST mode startup!");
-	 }
-	 //		  esp_bluedroid_disable(), esp_bt_controller_disable(), esp_wifi_stop();
-	 //		wifi_init(WIFI_MODE_STA);
-	 displayInit();
-	 displayShow();
-
-	 //		epdSleep();
-	 if (esp_sleep_enable_ulp_wakeup() == ESP_OK) {
-	 ESP_LOGI("GPIO", "sleep start");
-	 displayPowerOff();
-	 set_ulp_SleepPeriod(5);
-	 esp_deep_sleep_start();
-	 }
-
-	 }
-	 */
+	wake_up_wifi_st_RTC++;
+	wake_up_display_RTC++;
+	ESP_LOGI(TAG, "wake_up: wifi %d disp %d", wake_up_wifi_st_RTC, wake_up_display_RTC);
+	if ((wake_up_display_RTC == DISPALY_PERIOD_S) || (wake_up_wifi_st_RTC == WIFI_SEND_PERIOD_S)) {
+		if (wake_up_display_RTC == DISPALY_PERIOD_S) {
+			wake_up_display_RTC = 0;
+		}
+		if (wake_up_wifi_st_RTC == WIFI_SEND_PERIOD_S) {
+			wifi_init_param();
+			Cayenne_send_reg(sendCounter, pubEnd);
+			wifi_init(WIFI_MODE_STA);
+			wake_up_wifi_st_RTC = 0;
+		}
+	} else {
+		xSemaphoreGive(sleepEnable);
+	}
 }
 

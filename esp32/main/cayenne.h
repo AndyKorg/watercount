@@ -52,9 +52,9 @@
 //PROTOCOL_NAMEv311			/*MQTT version 3.11 compatible with https://eclipse.org/paho/clients/testing/*/
 
 //MQTT flags
-#define MQTT_QOS_TYPE_AT_MOST_ONCE	0 	//Без контроля
-#define MQTT_QOS_TYPE_AT_LEAST_ONCE	1	//Хотя бы один подписчик получил топик
-#define MQTT_QOS_TYPE_EXACTLY_ONE	2	//Гарантировано получен топик
+#define MQTT_QOS_TYPE_AT_MOST_ONCE	0 	//without delivery confirmation
+#define MQTT_QOS_TYPE_AT_LEAST_ONCE	1	//broker will confirm receipt, duplication possible
+#define MQTT_QOS_TYPE_EXACTLY_ONE	2	//broker will confirm receipt
 
 #define MQTT_RETAIN_ON			1		//Сообщать новому подписчику этот топик
 #define MQTT_RETAIN_OFF			0		//не сообщать
@@ -128,14 +128,17 @@
 #define CAYENNE_WATERLEAK				"waterleak,d=%d"	//Waterleak,Digital (0/1)
 #define CAYENNE_WIND_SPEED				"wind_speed,kmh=%d"	//Wind Speed,Kilometer per hour
 
+typedef esp_err_t (*cay_reciv_cb_t)(int data); 				//callback function for recive message from broker
+typedef esp_err_t (*cay_send_cb_t)(uint8_t *chanal, char **sensorType, uint32_t *value);//callback function for send data to broker
+
 esp_err_t Cayenne_Init(void);								//Init client
 void Cayenne_app_start(void);								//mqtt start
 esp_err_t Cayenne_app_stop(void);							//close all connect, ESP_OK - start process end
-typedef esp_err_t (*cayenne_cb_t)(int *data); 				//callback function for recive message from broker
-esp_err_t cayenne_reg(uint8_t chanal, cayenne_cb_t func);	//registre event on canal
+esp_err_t Cayenne_reciv_reg(uint8_t chanal, cay_reciv_cb_t func);	//registered event on chanal
 esp_err_t CayenneUpdateActuator(const uint8_t chanal, const uint32_t value);//update value after event dashboard
+esp_err_t Cayenne_send_reg(cay_send_cb_t sned_cb, cay_reciv_cb_t answer_cb);//callback registered send data and answer
 //char* CayenneTopic(const char *type, const char *channal);	//create string topic
-esp_err_t CayenneChangeInteger(const uint8_t chanal, const char *sensorType, const uint32_t value);	//Send integer value
+esp_err_t CayenneChangeInteger(const uint8_t chanal, const char *sensorType, const uint32_t value, const int qos);	//Send integer value
 time_t CayenneGetLastLinkDate(void);						//last date link to broker
 
 #endif /* APP_WEB_INCLUDE_CAYENNE_H_ */

@@ -14,6 +14,13 @@
 #include "soc/soc_ulp.h"
 #include "soc/rtc_io_reg.h"
 
+//RTC_IO_TOUCH_PAD0_REG - rtc pin 10
+#define SENSOR_PWR_PIN_UNHOLD 	WRITE_RTC_REG(RTC_IO_TOUCH_PAD0_REG, RTC_IO_TOUCH_PAD0_HOLD_S,1,0)
+#define SENSOR_PWR_PIN_HOLD		WRITE_RTC_REG(RTC_IO_TOUCH_PAD0_REG, RTC_IO_TOUCH_PAD0_HOLD_S,1,1)
+//pin pwr in 1 for sensor off, 0 - sensor on
+#define SENSOR_PWR_ON			WRITE_RTC_REG(RTC_GPIO_OUT_W1TC_REG, RTC_GPIO_OUT_DATA_W1TC_S+10,1,1)
+#define SENSOR_PWR_OFF			WRITE_RTC_REG(RTC_GPIO_OUT_W1TS_REG, RTC_GPIO_OUT_DATA_W1TS_S+10,1,1)
+
 	/* ADC1 channel sensor, see ulp_sensor.c */
 	.set adc_channel_sensor, 6
 	/* sensor power enable, see ulp_sensor.c */
@@ -62,8 +69,11 @@ sensor_state:
 previous_sensor_value:
 	.long 0
 	/* sensor_counter */
-	.global sensor_counter
-sensor_counter:
+	.global sensor_countLo
+sensor_countLo:
+	.long 0
+	.global sensor_countHi
+sensor_countHi:
 	.long 0
 	/* sensor value last measurement */
 	.global last_result_sensor
@@ -101,22 +111,14 @@ sleep_countLo_tics:
 	.global sleep_countHi_tics
 sleep_countHi_tics:
 	.long 0
-	/* wake up count, not used for ulp */
-	.global wake_up_count
-wake_up_count:
-	.long 0
-	/* attempt AP mode start, not used for ulp */
-	.global attemptAP
-attemptAP:
-	.long 0
 
 	/* Code goes into .text section */
 	.text
 	.global entry
 entry:
 	/* enable sensor */
-	WRITE_RTC_REG(RTC_GPIO_OUT_REG, RTC_GPIO_OUT_DATA_S + sensor_power_enable, 1, 1)
-
+	SENSOR_PWR_PIN_UNHOLD
+	SENSOR_PWR_ON
 	/* battarey measure */
 	move r0, 0
 	/* initialize the loop counter */
@@ -142,7 +144,7 @@ measure_bat:
 	/* initialize the loop counter */
 	stage_rst
 measure_sensor:
-	/* measure and add value to accumulator */
+	/* measure and add value to accumulator r0*/
 	adc r1, 0, adc_channel_sensor + 1
 	add r0, r0, r1
 	/* increment loop counter and check exit condition */
@@ -150,7 +152,8 @@ measure_sensor:
 	jumps measure_sensor, adc_oversampling_factor, lt
 
 	/* disable sensor */
-	WRITE_RTC_REG(RTC_GPIO_OUT_REG, RTC_GPIO_OUT_DATA_S + sensor_power_enable, 1, 0)
+	SENSOR_PWR_OFF
+	SENSOR_PWR_PIN_HOLD
 
 	/* divide accumulator by adc_oversampling_factor.
 	   Since it is chosen as a power of two, use right shift */
@@ -197,11 +200,15 @@ sensor_low_lvl:
 	move r0, sensor_low_level
 	jump normal_state, eq
 	/* add sensor_counter, no overflow check */
-	move r3, sensor_counter
-	ld r0, r3, 0
+	move r2, sensor_countLo
+	ld r0, r2, 0
 	add r0, r0, 1
-	st r0, r3, 0
-
+	st r0, r2, 0
+	jumpr normal_state, 0, gt
+	move r2, sensor_countHi
+	ld r0, r2, 0
+	add r0, r0, 1
+	st r0, r2, 0
 	/* normal state sensor set */
 normal_state:
 	st r0, r1, 0	/* r1 - is previous_sensor_value */
