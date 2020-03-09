@@ -31,8 +31,9 @@
 
 //rtc timer period
 #define SleepPeriod	SLEEP100MS			//one tick sleep
-#define TicPerSec	(10*SleepPeriod)
+#define TicPerSec	10					//Ticks sleep per second
 
+//set sleep period in seconds
 #define SleepPeriodSecSet(sec)			do{\
 											ulp_sleep_countHi_tics = (sec * TicPerSec) & UINT16_MAX;\
 											ulp_sleep_countLo_tics = ((sec * TicPerSec) >>16) & UINT16_MAX;\
@@ -54,6 +55,11 @@ extern const uint8_t ulp_main_bin_start[] asm("_binary_ulp_main_bin_start");
 extern const uint8_t ulp_main_bin_end[] asm("_binary_ulp_main_bin_end");
 
 static const char *TAG = "ULP";
+
+//raw last result sensor
+uint16_t sensor_raw(void){
+	return ((uint16_t)(ulp_last_result_sensor & UINT16_MAX));
+}
 
 uint32_t sensor_count(uint32_t *newValue){
 	if (newValue){
@@ -81,10 +87,10 @@ esp_err_t init_ulp_program(void) {
 				ESP_LOGI(TAG, "ADC config OK");
 				/* Set low and high thresholds*/
 				//TODO: get parameters adc sensor
-				ulp_high_max_thr_sensor = 2000;
-				ulp_high_thr_sensor = 1900;
-				ulp_low_min_thr_sensor = 1500;
-				ulp_low_thr_sensor = 1600;
+				ulp_high_max_thr_sensor = 1700;
+				ulp_high_thr_sensor = 1300;
+				ulp_low_min_thr_sensor = 300;`
+				ulp_low_thr_sensor = 700;
 				ulp_previous_sensor_value = 0;
 
 				ulp_ticks_per_second = TicPerSec;
@@ -106,7 +112,7 @@ void set_ulp_SleepPeriod(uint32_t second) {
 
 	ESP_LOGI(TAG, "sleep period %x%x", ulp_sleep_countHi_tics, ulp_sleep_countLo_tics);
 	ESP_LOGI(TAG, "seconds %d tics_count %d", SecondGet(), ulp_tics_count & UINT16_MAX);
-	ESP_LOGI(TAG, "sensor level %d current %d state %d", ulp_previous_sensor_value & UINT16_MAX, ulp_last_result_sensor & UINT16_MAX,
+	ESP_LOGI(TAG, "sensor prev_level %d current %d state %d", ulp_previous_sensor_value & UINT16_MAX, ulp_last_result_sensor & UINT16_MAX,
 			ulp_sensor_state & UINT16_MAX);
 	ESP_LOGI(TAG, "sensor counter %d", sensor_count(NULL));
 	ESP_LOGI(TAG, "bat %d", ulp_batarey_voltage & UINT16_MAX);

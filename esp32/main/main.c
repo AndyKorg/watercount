@@ -20,19 +20,19 @@
 #define SETTING_TIMEOUT_S	60
 #define APP_CORE_ID			(portNUM_PROCESSORS-1)
 
-#define SLEEP_PERIOD_S		10			//sleep period cpu,
+#define SLEEP_PERIOD_S		100			//sleep period cpu,
 #define	DISPALY_PERIOD_S	((1 * SLEEP_PERIOD_S)/SLEEP_PERIOD_S)		//refresh display period
-#define WIFI_SEND_PERIOD_S	((1 * SLEEP_PERIOD_S)/SLEEP_PERIOD_S)		//send data period wifi
+#define WIFI_SEND_PERIOD_S	((100 * SLEEP_PERIOD_S)/SLEEP_PERIOD_S)		//send data period wifi
 
 #define WIFI_AP_ATTEMPT_MAX	5			//The maximum number of attempts to start the AP.
 
-#define	WATERCOUNTER_CHANL	1			//Number channel from cloud
+#define	WATERCOUNTER_CHANL	1			//Number channel from cloud for counter water
 
 typedef enum {
 	alarmSemafor, alarmSleepTask, alarmUlpStart
 } alarm_system_t;
 
-SemaphoreHandle_t sleepEnable; //ready to sleep
+SemaphoreHandle_t sleepEnWiFi, sleepEnDisp; //ready to sleep
 
 static const char *TAG = "main";
 
@@ -44,7 +44,8 @@ RTC_SLOW_ATTR uint32_t wake_up_wifi_st_RTC;	//count wake up for ST
 void vSleepTask(void *vParameters) {
 
 	while (1) {
-		xSemaphoreTake(sleepEnable, ((SETTING_TIMEOUT_S*1000)/portTICK_RATE_MS));
+		xSemaphoreTake(sleepEnWiFi, ((SETTING_TIMEOUT_S*1000)/portTICK_RATE_MS));
+		xSemaphoreTake(sleepEnDisp, ((SETTING_TIMEOUT_S*1000)/portTICK_RATE_MS));
 		if (wifi_ap_count_client()) {	//client AP connect
 			ESP_LOGI(TAG, "client AP is connected!");
 			continue;
@@ -74,6 +75,7 @@ void alarmOff(alarm_system_t alarm) {
 	esp_deep_sleep_start(); //system is off
 }
 
+//send counter to cloud
 esp_err_t sendCounter(uint8_t *chanal, char **sensorType, uint32_t *value) {
 	ESP_LOGI(TAG, "send start");
 	*sensorType = calloc(strlen(CAYENNE_COUNTER) + 12, sizeof(char)); //12 digit for uint32_t
@@ -90,7 +92,7 @@ esp_err_t sendCounter(uint8_t *chanal, char **sensorType, uint32_t *value) {
 
 //published is ended, sleep enable
 esp_err_t pubEnd(int data) {
-	xSemaphoreGive(sleepEnable);
+	xSemaphoreGive(sleepEnWiFi);
 	return ESP_OK;
 }
 
@@ -118,8 +120,9 @@ void app_main(void) {
 		ESP_LOGI(TAG, "first start!");
 	}
 
-	sleepEnable = xSemaphoreCreateBinary();
-	if (sleepEnable == NULL) {
+	sleepEnWiFi = xSemaphoreCreateBinary();
+	sleepEnDisp = xSemaphoreCreateBinary();
+	if (sleepEnWiFi == NULL) {
 		alarmOff(alarmSemafor);
 		return;
 	}
@@ -147,18 +150,22 @@ void app_main(void) {
 	wake_up_wifi_st_RTC++;
 	wake_up_display_RTC++;
 	ESP_LOGI(TAG, "wake_up: wifi %d disp %d", wake_up_wifi_st_RTC, wake_up_display_RTC);
-	if ((wake_up_display_RTC == DISPALY_PERIOD_S) || (wake_up_wifi_st_RTC == WIFI_SEND_PERIOD_S)) {
-		if (wake_up_display_RTC == DISPALY_PERIOD_S) {
-			wake_up_display_RTC = 0;
-		}
-		if (wake_up_wifi_st_RTC == WIFI_SEND_PERIOD_S) {
-			wifi_init_param();
-			Cayenne_send_reg(sendCounter, pubEnd);
-			wifi_init(WIFI_MODE_STA);
-			wake_up_wifi_st_RTC = 0;
-		}
+	if (wake_up_display_RTC == DISPALY_PERIOD_S) {
+		wake_up_display_RTC = 0;
+		ESP_LOGI(TAG, "disp sleep emulation");
+		xSemaphoreGive(sleepEnDisp);
 	} else {
-		xSemaphoreGive(sleepEnable);
+		ESP_LOGI(TAG, "disp sleep continue");
+		xSemaphoreGive(sleepEnDisp);
+	}
+	if (wake_up_wifi_st_RTC == WIFI_SEND_PERIOD_S) {
+		wifi_init_param();
+		Cayenne_send_reg(sendCounter, pubEnd);
+		wifi_init(WIFI_MODE_STA);
+		wake_up_wifi_st_RTC = 0;
+	} else {
+		ESP_LOGI(TAG, "WIFI sleep continue");
+		xSemaphoreGive(sleepEnWiFi);
 	}
 }
 

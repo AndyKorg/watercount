@@ -23,5 +23,6 @@ esp_err_t init_ulp_program(void);
 esp_err_t start_ulp_program(void);
 void set_ulp_SleepPeriod(uint32_t second);
 uint32_t sensor_count(uint32_t *newValue);//if newValue is null then no set new value counter, only return current value
+uint16_t sensor_raw(void);	//raw last result sensor
 
 #endif /* MAIN_ULP_SENSOR_H_ */

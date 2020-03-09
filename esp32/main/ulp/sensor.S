@@ -21,6 +21,15 @@
 #define SENSOR_PWR_ON			WRITE_RTC_REG(RTC_GPIO_OUT_W1TC_REG, RTC_GPIO_OUT_DATA_W1TC_S+10,1,1)
 #define SENSOR_PWR_OFF			WRITE_RTC_REG(RTC_GPIO_OUT_W1TS_REG, RTC_GPIO_OUT_DATA_W1TS_S+10,1,1)
 
+#define LEVEL_LOW	0
+#define LEVEL_HIGH	1
+
+	/* state sensor */
+#define SENSOR_STATE_NORMAL 		0
+#define SENSOR_STATE_SHOT_CIRCUIT	1
+#define SENSOR_STATE_BREAK_LINE		2
+#define SENSOR_STATE_ALARM_LEVEL	3
+
 	/* ADC1 channel sensor, see ulp_sensor.c */
 	.set adc_channel_sensor, 6
 	/* sensor power enable, see ulp_sensor.c */
@@ -32,13 +41,6 @@
 	   For convenience, make it a power of 2. */
 	.set adc_oversampling_factor_log, 2
 	.set adc_oversampling_factor, (1 << adc_oversampling_factor_log)
-	/* state sensor */
-	.set sensor_normal, 0
-	.set sensor_short_circuit, 1
-	.set sensor_break_line, 2
-	.set sensor_alarm_level, 3
-	.set sensor_hight_level, 1
-	.set sensor_low_level, 0
 
 	/* Define variables, which go into .bss section (zero-initialized data) */
 	.bss
@@ -162,62 +164,66 @@ measure_sensor:
 	move r3, last_result_sensor
 	st r0, r3, 0
 
+	/* COMPARE r0 - result sensor*/
 	/* compare with low_thr_sensor; short circuit state if value < low_min_thr_sensor */
-	move r2, sensor_break_line
+	move r2, SENSOR_STATE_SHOT_CIRCUIT
 	move r3, low_min_thr_sensor
 	ld r3, r3, 0
-	sub r3, r0, r3
+	sub r3, r0, r3 /* r3 = sensor - low min */
 	jump sensor_state_set, ov
 
 	/* compare with high_thr_sensor; break state if value > high_max_thr_sensor */
-	move r2, sensor_break_line
+	move r2, SENSOR_STATE_BREAK_LINE
 	move r3, high_max_thr_sensor
 	ld r3, r3, 0
-	sub r3, r3, r0
+	sub r3, r3, r0 /* r3 = high max - sensor */
 	jump sensor_state_set, ov
 
-	move r1, previous_sensor_value
 	/* compare with low_thr_sensor; state is 0 if value < low_thr */
 	move r3, low_thr_sensor
 	ld r3, r3, 0
-	sub r3, r0, r3
+	sub r3, r0, r3 /* r3 = sensor - low */
 	jump sensor_low_lvl, ov
 
 	/* compare with high_thr_sensor; state is 1 if value > high_thr */
 	move r3, high_thr_sensor
 	ld r3, r3, 0
-	sub r3, r3, r0
-	move r0, sensor_hight_level
+	sub r3, r3, r0 /* r3 = high - sensor */
+	move r0, LEVEL_HIGH
 	jump normal_state, ov
 	/* undefine voltage sensor */
-	move r2, sensor_alarm_level
+	move r2, SENSOR_STATE_ALARM_LEVEL
 	jump sensor_state_set
 
 	/* compare current level and prev_level */
+	/* sensor in low level */
 sensor_low_lvl:
+	move r1, previous_sensor_value
 	ld r0, r1, 0
-	sub r0, r0, 0
-	move r0, sensor_low_level
-	jump normal_state, eq
-	/* add sensor_counter, no overflow check */
+	jumpr normal_state_low, LEVEL_LOW, eq /*prev is low level ?  prev = prev - 0*/
+	/* Prev level is 1, current 0. 1->0 this add sensor_counter, no overflow check! */
 	move r2, sensor_countLo
 	ld r0, r2, 0
 	add r0, r0, 1
 	st r0, r2, 0
-	jumpr normal_state, 0, gt
+	jumpr normal_state_low, 0, gt
 	move r2, sensor_countHi
 	ld r0, r2, 0
 	add r0, r0, 1
 	st r0, r2, 0
+normal_state_low:
+	move r0, LEVEL_LOW
 	/* normal state sensor set */
 normal_state:
-	st r0, r1, 0	/* r1 - is previous_sensor_value */
-	move r2, sensor_normal
+	move r1, previous_sensor_value
+	st r0, r1, 0
+
+	move r2, SENSOR_STATE_NORMAL
 sensor_state_set:
 	move r3, sensor_state
 	st r2, r3, 0
 
-	/*second counter */
+	/*SECOND COUNTER ADD */
 	/* tic counter added and check per second*/
 	move r3, tics_count
 	ld r0, r3, 0
@@ -232,8 +238,8 @@ sensor_state_set:
 	ld r0, r2, 0
 	add r0, r0, 1
 	st r0, r2, 0
-second_add_end:
 
+second_add_end:
 	/* one second, start new one second*/
 	move r2, ticks_per_second
 	ld r0, r2, 0
