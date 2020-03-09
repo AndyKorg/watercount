@@ -24,5 +24,7 @@ esp_err_t start_ulp_program(void);
 void set_ulp_SleepPeriod(uint32_t second);
 uint32_t sensor_count(uint32_t *newValue);//if newValue is null then no set new value counter, only return current value
 uint16_t sensor_raw(void);	//raw last result sensor
+bool battery_low(void);		//battery is low
+void RTC_IRAM_ATTR wake_stub(void); // Function which runs after exit from deep sleep
 
 #endif /* MAIN_ULP_SENSOR_H_ */

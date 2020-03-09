@@ -35,7 +35,7 @@
 	/* sensor power enable, see ulp_sensor.c */
 	.set sensor_power_enable, 10
 	/* ADC1 batarey voltage, see ulp_sensor.c */
-	.set adc_channel_batarey, 3
+	.set adc_channel_batarey, 5
 
 	/* Configure the number of ADC samples to average on each measurement.
 	   For convenience, make it a power of 2. */

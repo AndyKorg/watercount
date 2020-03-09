@@ -6,6 +6,7 @@
 #include "esp_sleep.h"
 #include "esp32/ulp.h"
 #include "driver/rtc_io.h"
+#include "esp32/rom/rtc.h"
 #include "driver/gpio.h"
 #include "ulp_main.h"
 #include "ulp_sensor.h"
@@ -16,9 +17,12 @@
 //adc sensor, see adc.s
 #define SENSOR_NAMUR_CHANAL 			ADC1_CHANNEL_6
 #define SENSOR_NAMUR_ATTEN				ADC_ATTEN_11db
-#define SENSOR_BAT_CHANAL 				ADC1_CHANNEL_3
+#define SENSOR_BAT_CHANAL 				ADC1_CHANNEL_5
 #define SENSOR_BAT_ATTEN				ADC_ATTEN_11db
 #define ADC_WIDTH_SENSOR				ADC_WIDTH_11Bit
+
+//threshold sensors
+#define BAT_LOW							990 //3v low threshold
 
 //power enable sensor, see adc.s
 #define SENSOR_POWER_EN					GPIO_NUM_4
@@ -57,15 +61,48 @@ extern const uint8_t ulp_main_bin_end[] asm("_binary_ulp_main_bin_end");
 static const char *TAG = "ULP";
 
 //raw last result sensor
-uint16_t sensor_raw(void){
-	return ((uint16_t)(ulp_last_result_sensor & UINT16_MAX));
+uint16_t sensor_raw(void) {
+	return ((uint16_t) (ulp_last_result_sensor & UINT16_MAX));
 }
 
-uint32_t sensor_count(uint32_t *newValue){
-	if (newValue){
+uint32_t sensor_count(uint32_t *newValue) {
+	if (newValue) {
 		CounterSet(*newValue);
 	}
 	return CounterGet();
+}
+
+bool battery_low(void) {
+	return (ulp_batarey_voltage & UINT16_MAX) <= BAT_LOW;
+}
+
+#include "soc/uart_reg.h"
+
+static const char RTC_RODATA_ATTR sleep_fmt_str[] = "sleeping\n";
+
+void RTC_IRAM_ATTR wake_stub(void) {
+	if ((ulp_batarey_voltage & UINT16_MAX) > BAT_LOW) {
+		// On revision 0 of ESP32, this function must be called:
+		esp_default_wake_deep_sleep();
+		// Return from the wake stub function to continue
+		// booting the firmware.
+		return;
+	}
+
+	ets_printf(sleep_fmt_str);
+	    // Wait for UART to end transmitting.
+	    while (REG_GET_FIELD(UART_STATUS_REG(0), UART_ST_UTX_OUT)) {
+	        ;
+	    }
+    // Set the pointer of the wake stub function.
+    REG_WRITE(RTC_ENTRY_ADDR_REG, (uint32_t)&wake_stub);
+    // Go to sleep.
+    CLEAR_PERI_REG_MASK(RTC_CNTL_STATE0_REG, RTC_CNTL_SLEEP_EN);
+    SET_PERI_REG_MASK(RTC_CNTL_STATE0_REG, RTC_CNTL_SLEEP_EN);
+    // A few CPU cycles may be necessary for the sleep to start...
+    while (true) {
+        ;
+    }
 }
 
 void sensor_power_pin_enable(void) {
@@ -89,7 +126,7 @@ esp_err_t init_ulp_program(void) {
 				//TODO: get parameters adc sensor
 				ulp_high_max_thr_sensor = 1700;
 				ulp_high_thr_sensor = 1300;
-				ulp_low_min_thr_sensor = 300;`
+				ulp_low_min_thr_sensor = 300;
 				ulp_low_thr_sensor = 700;
 				ulp_previous_sensor_value = 0;
 

@@ -20,9 +20,9 @@
 #define SETTING_TIMEOUT_S	60
 #define APP_CORE_ID			(portNUM_PROCESSORS-1)
 
-#define SLEEP_PERIOD_S		100			//sleep period cpu,
-#define	DISPALY_PERIOD_S	((1 * SLEEP_PERIOD_S)/SLEEP_PERIOD_S)		//refresh display period
-#define WIFI_SEND_PERIOD_S	((100 * SLEEP_PERIOD_S)/SLEEP_PERIOD_S)		//send data period wifi
+#define SLEEP_PERIOD_S		10			//sleep period cpu,
+#define	DISPALY_PERIOD_S	10			//refresh display period
+#define WIFI_SEND_PERIOD_S	1			//send data period wifi
 
 #define WIFI_AP_ATTEMPT_MAX	5			//The maximum number of attempts to start the AP.
 
@@ -58,6 +58,8 @@ void vSleepTask(void *vParameters) {
 			//esp_bt_controller_disable(),
 			//esp_wifi_stop();
 			set_ulp_SleepPeriod(SLEEP_PERIOD_S);
+			// Set the wake stub function
+			esp_set_deep_sleep_wake_stub(&wake_stub);
 			esp_deep_sleep_start();
 		}
 	}
@@ -133,7 +135,7 @@ void app_main(void) {
 	}
 
 	gpio_set_direction(STARTUP_MODE_PIN, GPIO_MODE_INPUT);
-	if (gpio_get_level(STARTUP_MODE_PIN)) { //setting mode - wifi AP on and wait SETTING_TIMEOUT_S
+	if (gpio_get_level(STARTUP_MODE_PIN) && (!battery_low())) { //setting mode - wifi AP on and wait SETTING_TIMEOUT_S
 		ESP_LOGI(TAG, "ap attempt = %d", attemptAP_RTC);
 		if (attemptAP_RTC) { // check count attempt AP
 			//TODO: Show attempt to display
@@ -147,8 +149,13 @@ void app_main(void) {
 		}
 	}
 	//start ST mode if parameter is set, or show problem and not start mode ST
-	wake_up_wifi_st_RTC++;
-	wake_up_display_RTC++;
+	if (cause != ESP_SLEEP_WAKEUP_ULP) {
+		wake_up_display_RTC = 0;
+		wake_up_wifi_st_RTC = 0;
+	} else {
+		wake_up_wifi_st_RTC++;
+		wake_up_display_RTC++;
+	}
 	ESP_LOGI(TAG, "wake_up: wifi %d disp %d", wake_up_wifi_st_RTC, wake_up_display_RTC);
 	if (wake_up_display_RTC == DISPALY_PERIOD_S) {
 		wake_up_display_RTC = 0;
@@ -158,7 +165,7 @@ void app_main(void) {
 		ESP_LOGI(TAG, "disp sleep continue");
 		xSemaphoreGive(sleepEnDisp);
 	}
-	if (wake_up_wifi_st_RTC == WIFI_SEND_PERIOD_S) {
+	if ((wake_up_wifi_st_RTC == WIFI_SEND_PERIOD_S) && (cause == ESP_SLEEP_WAKEUP_ULP) && (!battery_low())) {
 		wifi_init_param();
 		Cayenne_send_reg(sendCounter, pubEnd);
 		wifi_init(WIFI_MODE_STA);
