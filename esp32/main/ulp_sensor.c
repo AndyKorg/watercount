@@ -8,24 +8,18 @@
 #include "driver/rtc_io.h"
 #include "esp32/rom/rtc.h"
 #include "driver/gpio.h"
+
+#include "HAL_GPIO.h"
+
 #include "ulp_main.h"
 #include "ulp_sensor.h"
 
 #include "driver/adc.h"
 #include "esp_adc_cal.h"
 
-//adc sensor, see adc.s
-#define SENSOR_NAMUR_CHANAL 			ADC1_CHANNEL_6
-#define SENSOR_NAMUR_ATTEN				ADC_ATTEN_11db
-#define SENSOR_BAT_CHANAL 				ADC1_CHANNEL_5
-#define SENSOR_BAT_ATTEN				ADC_ATTEN_11db
-#define ADC_WIDTH_SENSOR				ADC_WIDTH_11Bit
-
 //threshold sensors
 #define BAT_LOW							990 //3v low threshold
-
-//power enable sensor, see adc.s
-#define SENSOR_POWER_EN					GPIO_NUM_4
+#define ADC_COEFF_BAT_mV				1700 //correction factor of the voltage divider
 
 /* period rtc */
 #define SLEEP1MS	1000				//1 ms for internal 150kHz RC oscillator
@@ -60,6 +54,10 @@ extern const uint8_t ulp_main_bin_end[] asm("_binary_ulp_main_bin_end");
 
 static const char *TAG = "ULP";
 
+sensor_state_t sensor_state(void){
+	return (ulp_sensor_state & UINT16_MAX);
+}
+
 //raw last result sensor
 uint16_t sensor_raw(void) {
 	return ((uint16_t) (ulp_last_result_sensor & UINT16_MAX));
@@ -72,13 +70,20 @@ uint32_t sensor_count(uint32_t *newValue) {
 	return CounterGet();
 }
 
+uint32_t bat_voltage(void) {
+	static esp_adc_cal_characteristics_t *adc_chars;
+
+	adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
+	esp_adc_cal_value_t type = esp_adc_cal_characterize(ADC_UNIT_1, SENSOR_BAT_ATTEN, ADC_WIDTH_SENSOR, 1100, adc_chars);
+	ESP_LOGI(TAG, "type vref %d", type);
+	return (esp_adc_cal_raw_to_voltage((ulp_batarey_voltage & UINT16_MAX), adc_chars)+ADC_COEFF_BAT_mV);
+}
+
 bool battery_low(void) {
 	return (ulp_batarey_voltage & UINT16_MAX) <= BAT_LOW;
 }
 
 #include "soc/uart_reg.h"
-
-static const char RTC_RODATA_ATTR sleep_fmt_str[] = "sleeping\n";
 
 void RTC_IRAM_ATTR wake_stub(void) {
 	if ((ulp_batarey_voltage & UINT16_MAX) > BAT_LOW) {
@@ -88,21 +93,15 @@ void RTC_IRAM_ATTR wake_stub(void) {
 		// booting the firmware.
 		return;
 	}
-
-	ets_printf(sleep_fmt_str);
-	    // Wait for UART to end transmitting.
-	    while (REG_GET_FIELD(UART_STATUS_REG(0), UART_ST_UTX_OUT)) {
-	        ;
-	    }
-    // Set the pointer of the wake stub function.
-    REG_WRITE(RTC_ENTRY_ADDR_REG, (uint32_t)&wake_stub);
-    // Go to sleep.
-    CLEAR_PERI_REG_MASK(RTC_CNTL_STATE0_REG, RTC_CNTL_SLEEP_EN);
-    SET_PERI_REG_MASK(RTC_CNTL_STATE0_REG, RTC_CNTL_SLEEP_EN);
-    // A few CPU cycles may be necessary for the sleep to start...
-    while (true) {
-        ;
-    }
+	// Set the pointer of the wake stub function.
+	REG_WRITE(RTC_ENTRY_ADDR_REG, (uint32_t )&wake_stub);
+	// Go to sleep.
+	CLEAR_PERI_REG_MASK(RTC_CNTL_STATE0_REG, RTC_CNTL_SLEEP_EN);
+	SET_PERI_REG_MASK(RTC_CNTL_STATE0_REG, RTC_CNTL_SLEEP_EN);
+	// A few CPU cycles may be necessary for the sleep to start...
+	while (true) {
+		;
+	}
 }
 
 void sensor_power_pin_enable(void) {

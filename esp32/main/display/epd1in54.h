@@ -1,5 +1,6 @@
 /*
  * low driver E-Paper
+ * TODO: Add partial refresh
  */ 
 #ifndef _EPD1IN54_H
 #define _EPD1IN54_H

@@ -19,7 +19,13 @@
 
 #define	COUNT_SHOW_MAX				99999			//maximum number for big font
 
-void displayInit(void);
+typedef void (*display_oper_end)(void);				//callback function display module operation end
+typedef enum {
+	cdClear,
+	cdIniOnly,
+} clear_dispaly_t;
+
+void displayInit(clear_dispaly_t Cmd);				//And on screen
 void displayShow(void);
 void displayPowerOff(void);							//Only off screen!
 

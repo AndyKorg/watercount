@@ -9,25 +9,18 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+
+#include "../HAL_GPIO.h"
 #include "epdif.h"
 #include "driver/rtc_io.h"
 
-#define EPD_RST_PIN			GPIO_NUM_26		//External reset pin (Low for reset)
-#define EPD_DC_PIN			GPIO_NUM_27		//Data/Command control pin (High for data, and low for command)
-#define EPD_SPI_HOST		VSPI_HOST		//Data/Command control pin (High for data, and low for command)
-#define EPD_BUSY_PIN		GPIO_NUM_25		//Busy pin (high is busy)
-#define EPD_POWER_PIN		GPIO_NUM_2		//power display
+static const char *TAG = "EPDIF";
 
-#define EPD_DMA_CHAN    	2				//Only 1 or 2, channel 0 has limitations
-#define EPD_NUM_MOSI		GPIO_NUM_23
-#define EPD_NUM_CLK			GPIO_NUM_18
-#define EPD_NUM_CS			GPIO_NUM_5
-
-static const char *TAG = "epdif";
+#define PERIOD_RESET_MS		10	//Initialize period reset
 
 spi_device_handle_t spi;
 
-void lcd_rtc_pin_down(gpio_num_t pin){
+void lcd_rtc_pin_down(gpio_num_t pin) {
 	rtc_gpio_init(pin);
 	rtc_gpio_set_direction(pin, RTC_GPIO_MODE_INPUT_ONLY);
 	rtc_gpio_pullup_dis(pin);
@@ -35,10 +28,22 @@ void lcd_rtc_pin_down(gpio_num_t pin){
 	rtc_gpio_hold_en(pin);
 }
 
+
 void lcd_setup_pin(lcd_pwr_mode_t mode) {
 
+	static lcd_pwr_mode_t prev = LCD_POWER_OFF;
+
+	if (prev == mode){
+		return;
+	}
+
 	if (mode == LCD_POWER_OFF) {
+		ESP_LOGI(TAG, "POWER OFF START");
+		//spi stop
+		spi_bus_remove_device(spi);
+		spi_bus_free(EPD_SPI_HOST);
 		//Busy
+		rtc_gpio_deinit(EPD_DC_PIN);
 		gpio_set_direction(EPD_BUSY_PIN, GPIO_MODE_INPUT);
 		gpio_pulldown_dis(EPD_BUSY_PIN);
 		gpio_pullup_dis(EPD_BUSY_PIN);
@@ -46,36 +51,49 @@ void lcd_setup_pin(lcd_pwr_mode_t mode) {
 			vTaskDelay(20 / portTICK_RATE_MS);
 		}
 		ESP_LOGI(TAG, "pin display sleep mode set");
+		//pin control off. Avoid spurious supply voltage.
+		gpio_set_direction(EPD_CS_PIN, GPIO_MODE_OUTPUT);
+		gpio_set_level(EPD_CS_PIN, 0);
+		gpio_set_direction(EPD_CLK_PIN, GPIO_MODE_OUTPUT);
+		gpio_set_level(EPD_CLK_PIN, 0);
+		gpio_set_direction(EPD_MOSI_PIN, GPIO_MODE_OUTPUT);
+		gpio_set_level(EPD_MOSI_PIN, 0);
+		lcd_rtc_pin_down(EPD_RST_PIN); //reset
+		lcd_rtc_pin_down(EPD_DC_PIN);
 		//display power off
+		rtc_gpio_hold_dis(EPD_POWER_PIN);
+		rtc_gpio_deinit(EPD_POWER_PIN);
 		gpio_set_direction(EPD_POWER_PIN, GPIO_MODE_OUTPUT);
 		gpio_set_level(EPD_POWER_PIN, 0);
 		lcd_rtc_pin_down(EPD_POWER_PIN);
-		lcd_rtc_pin_down(EPD_RST_PIN);//reset
-		lcd_rtc_pin_down(EPD_BUSY_PIN);//busy, after power down display!
+		lcd_rtc_pin_down(EPD_BUSY_PIN); //busy, after power down display!
 	} else {
+		ESP_LOGI(TAG, "POWER ON START");
+		//Others pins for SPI in init function setting
 		//Power
-		gpio_set_direction(EPD_POWER_PIN, GPIO_MODE_OUTPUT);
-		gpio_pulldown_en(EPD_POWER_PIN); // todo: off if external resistance
-		gpio_pullup_dis(EPD_POWER_PIN);
-		gpio_set_level(EPD_POWER_PIN, 1);
+		rtc_gpio_hold_dis(EPD_POWER_PIN);
 		rtc_gpio_deinit(EPD_POWER_PIN);
-		/*	rtc_gpio_init(EPD_POWER_EN);
-		 rtc_gpio_set_direction(EPD_POWER_EN, RTC_GPIO_MODE_OUTPUT_ONLY);
-		 rtc_gpio_pulldown_en(EPD_POWER_EN);
-		 rtc_gpio_pullup_dis(EPD_POWER_EN);
-		 rtc_gpio_set_level(EPD_POWER_EN, 0); //in sleep mode is off
-		 */
+		gpio_set_direction(EPD_POWER_PIN, GPIO_MODE_OUTPUT);
+		gpio_set_level(EPD_POWER_PIN, 1);
+		gpio_pulldown_en(EPD_POWER_PIN);
+		gpio_pullup_dis(EPD_POWER_PIN);
 		//reset pin
-		gpio_set_direction(EPD_RST_PIN, GPIO_MODE_OUTPUT);
+		rtc_gpio_hold_dis(EPD_RST_PIN);
 		rtc_gpio_deinit(EPD_RST_PIN);
+		gpio_set_direction(EPD_RST_PIN, GPIO_MODE_OUTPUT);
 		//Busy pin
+		rtc_gpio_hold_dis(EPD_BUSY_PIN);
+		rtc_gpio_deinit(EPD_BUSY_PIN);
 		gpio_set_direction(EPD_BUSY_PIN, GPIO_MODE_INPUT);
 		gpio_pulldown_dis(EPD_BUSY_PIN);
 		gpio_pullup_dis(EPD_BUSY_PIN);
-		rtc_gpio_deinit(EPD_BUSY_PIN);
 		//dc pin
+		rtc_gpio_hold_dis(EPD_DC_PIN);
+		rtc_gpio_deinit(EPD_DC_PIN);
 		gpio_set_direction(EPD_DC_PIN, GPIO_MODE_OUTPUT);
 	}
+
+	prev = mode;
 }
 
 void lcd_cmd(const uint8_t cmd, const uint8_t *data, const uint16_t len) {
@@ -128,9 +146,9 @@ IRAM_ATTR void dc_mode_cb(spi_transaction_t *tr) {
 
 void lcd_reset(void) {
 	gpio_set_level(EPD_RST_PIN, 0);
-	vTaskDelay(200 / portTICK_RATE_MS);
+	vTaskDelay(PERIOD_RESET_MS / portTICK_RATE_MS);
 	gpio_set_level(EPD_RST_PIN, 1);
-	vTaskDelay(200 / portTICK_RATE_MS);
+	vTaskDelay(PERIOD_RESET_MS / portTICK_RATE_MS);
 }
 
 esp_err_t IfInit(const uint16_t max_buf_size) {
@@ -141,8 +159,8 @@ esp_err_t IfInit(const uint16_t max_buf_size) {
 	// @formatter:off
 	spi_bus_config_t buscfg = {
         .miso_io_num = -1,
-        .mosi_io_num = EPD_NUM_MOSI,
-        .sclk_io_num = EPD_NUM_CLK,
+        .mosi_io_num = EPD_MOSI_PIN,
+        .sclk_io_num = EPD_CLK_PIN,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
         .max_transfer_sz = max_buf_size+4, 				//Maximum transfer size, in bytes. Defaults to 4094 if 0
@@ -150,7 +168,7 @@ esp_err_t IfInit(const uint16_t max_buf_size) {
 	spi_device_interface_config_t devcfg = {
 			.clock_speed_hz = 4 * 1000 * 1000,       	//Clock out at 4 MHz  - 125 us CLK
 			.mode = 0,									//SPI mode 0
-			.spics_io_num = EPD_NUM_CS,					//CS pin
+			.spics_io_num = EPD_CS_PIN,					//CS pin
 			.queue_size = 7,							//We want to be able to queue 7 transactions at a time
 			.pre_cb = dc_mode_cb,  						//Specify pre-transfer callback to handle D/C line
 			};

@@ -14,10 +14,13 @@
 #include "cayenne.h"
 #include "ulp_sensor.h"
 
+#include "esp_log.h"
 
 //fixed cursor position for
-uint16_t countPos,					//Digit counter
-		powerPosX, powerPosY,		// Заряд батареи по X и по Y
+RTC_SLOW_ATTR uint16_t countPos;		//Digit counter
+RTC_SLOW_ATTR uint16_t freeAreaY;		//Free area after digit counter
+
+int16_t powerPosX, powerPosY,		//Заряд батареи по X и по Y
 		sCheckBatPos,				//Надпись "проверено" для батареи
 		dtCheckPos,					//Дата проверки батареи
 		sSendPos,					//Надпись "передано" для wifi
@@ -25,13 +28,12 @@ uint16_t countPos,					//Digit counter
 		;
 
 //debug!
-uint8_t REF_1V1_ACCURATE = 1, batVoltage = 1;
 time_t dtCheckPower;
-sensor_state_t alarmSensor = SENSOR_ALARM_NO;		//TODO: move to ulp_main
-uint32_t countWater;		//TODO: move to ulp_main
+
+//static const char *TAG = "ULP";
 
 //just turn off the display, because inclusion is controlled by this module.
-void displayPowerOff(void){
+void displayPowerOff(void) {
 	lcd_setup_pin(LCD_POWER_OFF);
 }
 
@@ -73,24 +75,24 @@ int dtShow(time_t value, int x) {
 
 //Выводит напряжение на батарее до двух знаков после запятой, возвращает позицию х на которй был закончен вывод
 int batShow(int x) {
-	char s[10], cnv[10];
+	char s[10], tmp[10];
 	memset(s, 0, sizeof(s));
-	if (batVoltage) {
-		uint32_t mV = ((uint32_t) REF_1V1_ACCURATE * 1023) / batVoltage;
-		uint8_t intV = mV / 1000;
-		uint8_t fracV = (mV - (intV * 1000)) / 10;
-		strlcat(s, " ", sizeof(s));
-		strlcat(s, itoa(intV, cnv, 10), sizeof(s));
-		strlcat(s, ",", sizeof(s));
-		strlcat(s, itoa(fracV, cnv, 10), sizeof(s));
-		strlcat(s, " V", sizeof(s));
-	} else {
-		strlcat(s, " NA", sizeof(s));
+	memset(tmp, 0, sizeof(tmp));
+	uint32_t bat_mV = bat_voltage();
+	strlcat(s, " ", sizeof(s));
+	if (bat_mV>1000){
+		strlcat(s, itoa((bat_mV/1000), tmp, 10), sizeof(s));
 	}
+	else{
+		strlcat(s, "0", sizeof(s));
+	}
+	strlcat(s, ".", sizeof(s));
+	strlcat(s, itoa(((bat_mV - ((bat_mV/1000)*1000))/10), tmp, 10), sizeof(s));
+	strlcat(s, " V", sizeof(s));
 	return epdDrawStringAt(x, 0, s, &FontStreched72, COLORED);
 }
 
-//Инициализация одной памяти
+//Initialise one buffer display
 void ePatternMemoryInit() {
 	uint32_t i = 0;
 	uint16_t cursor = 4;
@@ -108,8 +110,9 @@ void ePatternMemoryInit() {
 	epdDrawHorizontalLine(0, 0, 200, COLORED);
 	epdSetPatternMemory(Paint.image, 0, cursor, Paint.width, 2); //Рисуем в памаяти epd
 
-	//Состояние батареи
 	cursor += 2;
+	freeAreaY = cursor;
+	//Состояние батареи
 	powerPosY = cursor;
 	epdClear(UNCOLORED);
 	memset(s, 0, sizeof(s));
@@ -150,28 +153,28 @@ void ePatternMemoryInit() {
 	epdSetPatternMemory(Paint.image, 0, cursor, Paint.width, FontStreched72.Height + 3);
 }
 
-void displayInit(void) {
-	/**
-	 *  there are 2 memory areas embedded in the e-paper display
-	 *  and once the display is refreshed, the memory area will be auto-toggled,
-	 *  i.e. the next action of SetPatternMemory will set the other memory area
-	 *  therefore you have to clear the pattern memory twice.
-	 */
-	epdClearPatternMemory(0xff); // bit set = white, bit reset = black
-	epdDisplayPattern();
-	epdClearPatternMemory(0xff); //Очистка второй памяти
-	epdDisplayPattern();
+void displayInit(clear_dispaly_t Cmd){
 
 	Paint.rotate = ROTATE_0;
 	Paint.width = 200;			//Холст для рисования для одной строки
 	Paint.height = 80;
 
 	if (epdImageInit() == EXIT_SUCCESS) {
+		if (Cmd == cdClear) {
+			/**
+			 *  there are 2 memory areas embedded in the e-paper display
+			 *  and once the display is refreshed, the memory area will be auto-toggled,
+			 *  i.e. the next action of SetPatternMemory will set the other memory area
+			 *  therefore you have to clear the pattern memory twice.
+			 */
+			epdClearPatternMemory(0xff); // bit set = white, bit reset = black
+			epdDisplayPattern();
+			epdClearPatternMemory(0xff); //Очистка второй памяти
 
-		ePatternMemoryInit();	//Первую заполнили
-		epdDisplayPattern();	//out display
-		ePatternMemoryInit();	//вторую заполнили
-		epdDisplayPattern();	//out display
+			ePatternMemoryInit();	//Первую заполнили
+			epdDisplayPattern();	//out display
+			ePatternMemoryInit();	//вторую заполнили
+		}
 	}
 }
 
@@ -203,7 +206,7 @@ void displayShow(void) {
 	epdSetPatternMemory(Paint.image, powerPosX, powerPosY, Paint.width, FontStreched72.Height + 3);
 
 	//Цифры счетчика
-	uint32_t tmp = countWater;
+	uint32_t tmp = sensor_count(NULL);
 	if (tmp > COUNT_SHOW_MAX) {
 		tmp = COUNT_SHOW_MAX;
 		epdClear(UNCOLORED);
@@ -218,7 +221,7 @@ void displayShow(void) {
 	epdSetPatternMemory(Paint.image, 0, countPos, Paint.width, Fontfont39pixel_h_digit.Height + 5);
 	//Дата измерения батареи или авария датчика
 	epdClear(UNCOLORED);
-	switch (alarmSensor) {
+	switch (sensor_state()) {
 	case SENSOR_ALARM_BREAK:
 		epdDrawStringAt(0, 0, "ОБРЫВ", &FontStreched72, COLORED);
 		break;
@@ -238,8 +241,7 @@ void displayShow(void) {
 	epdClear(UNCOLORED);
 	if (wifi_paramIsEmpty()) {
 		epdDrawStringAt(0, 0, "передано", &FontStreched72, COLORED);
-	}
-	else{
+	} else {
 		epdDrawStringAt(0, 0, "wifi не настроен", &FontStreched72, COLORED);
 	}
 	epdSetPatternMemory(Paint.image, 0, sSendPos, Paint.width, FontStreched72.Height + 3);

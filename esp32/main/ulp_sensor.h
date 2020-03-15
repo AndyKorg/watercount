@@ -14,8 +14,6 @@ typedef enum {
 	SENSOR_ALARM_LEVEL = 3			//Failed to determine sensor status due to incorrect levels
 } sensor_state_t;
 
-extern sensor_state_t alarmSensor;//TODO: move to ulp_main
-
 /* This function is called once after power-on reset, to load ULP program into
  * RTC memory and configure the ADC and e.t.
  */
@@ -25,6 +23,8 @@ void set_ulp_SleepPeriod(uint32_t second);
 uint32_t sensor_count(uint32_t *newValue);//if newValue is null then no set new value counter, only return current value
 uint16_t sensor_raw(void);	//raw last result sensor
 bool battery_low(void);		//battery is low
+uint32_t bat_voltage(void);
 void RTC_IRAM_ATTR wake_stub(void); // Function which runs after exit from deep sleep
+sensor_state_t sensor_state(void);
 
 #endif /* MAIN_ULP_SENSOR_H_ */
