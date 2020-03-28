@@ -81,6 +81,13 @@ sensor_countHi:
 	.global last_result_sensor
 last_result_sensor:
 	.long 0
+	/* time of the last sensor check */
+	.global sensor_check_timeLo
+sensor_check_timeLo:
+	.long 0
+	.global sensor_check_timeHi
+sensor_check_timeHi:
+	.long 0
 
 /* batarey */
 	/* batarey voltage */
@@ -222,6 +229,16 @@ normal_state:
 sensor_state_set:
 	move r3, sensor_state
 	st r2, r3, 0
+
+	/*save check time*/
+	move r3, secondLo
+	move r2, sensor_check_timeLo
+	ld r0, r3, 0
+	st r0, r2, 0
+	move r3, secondHi
+	move r2, sensor_check_timeHi
+	ld r0, r3, 0
+	st r0, r2, 0
 
 	/*SECOND COUNTER ADD */
 	/* tic counter added and check per second*/

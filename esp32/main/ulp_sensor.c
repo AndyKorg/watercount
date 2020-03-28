@@ -49,13 +49,18 @@
 											ulp_sensor_countHi = (val>>16) & UINT16_MAX;\
 										} while(0)
 
+#define SensorCheckTime()				((ulp_sensor_check_timeLo & UINT16_MAX) | ((ulp_sensor_check_timeHi <<16) & (UINT16_MAX << 16)))
+
 extern const uint8_t ulp_main_bin_start[] asm("_binary_ulp_main_bin_start");
 extern const uint8_t ulp_main_bin_end[] asm("_binary_ulp_main_bin_end");
 
 static const char *TAG = "ULP";
 
-sensor_state_t sensor_state(void){
-	return (ulp_sensor_state & UINT16_MAX);
+sensor_status_t sensor_state(void){
+	sensor_status_t ret;
+	ret.status = ulp_sensor_state & UINT16_MAX;
+	ret.timeCheck = SensorCheckTime();
+	return ret;
 }
 
 //raw last result sensor
@@ -82,8 +87,6 @@ uint32_t bat_voltage(void) {
 bool battery_low(void) {
 	return (ulp_batarey_voltage & UINT16_MAX) <= BAT_LOW;
 }
-
-#include "soc/uart_reg.h"
 
 void RTC_IRAM_ATTR wake_stub(void) {
 	if ((ulp_batarey_voltage & UINT16_MAX) > BAT_LOW) {
@@ -131,6 +134,8 @@ esp_err_t init_ulp_program(void) {
 
 				ulp_ticks_per_second = TicPerSec;
 				ulp_tics_count = 0;
+
+				ulp_batarey_voltage = BAT_LOW+1;//from start application battery is nolrmal
 				SecondSet(0);
 
 				sensor_power_pin_enable();
@@ -160,3 +165,10 @@ esp_err_t start_ulp_program(void) {
 	return ulp_run(&ulp_entry - RTC_SLOW_MEM);
 }
 
+void setSecond(time_t value){
+	SecondSet(value);
+}
+
+time_t getSecond(){
+	return SecondGet();
+}

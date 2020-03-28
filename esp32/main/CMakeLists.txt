@@ -2,7 +2,7 @@
 set(COMPONENT_REQUIRES )
 set(COMPONENT_PRIV_REQUIRES )
 
-set(COMPONENT_SRCS "main.c" "wifi.c" "http_srv.c" "utils.c" "params.c" "cayenne.c" "display/epdif.c" "display/epd1in54.c" "display/epdpaint.c" "display.c" "display/font39pixel_h_digit.c" "display/fontStreched72.c" "ulp_sensor.c")
+set(COMPONENT_SRCS "main.c" "wifi.c" "http_srv.c" "utils.c" "params.c" "cayenne.c" "display/epdif.c" "display/epd1in54.c" "display/epdpaint.c" "display.c" "display/font39pixel_h_digit.c" "display/fontStreched72.c" "ulp_sensor.c" "sntp_client.c")
 
 set(COMPONENT_ADD_INCLUDEDIRS "")
 

@@ -74,3 +74,12 @@ size_t strset(char* to, char* from){
     strcpy(to, from);
   return sizeTo;
 }
+
+void twoDigit(int value, char *str, size_t size) {
+	char cnv[10];
+	if (value < 10) {
+		strlcat(str, "0", size);
+	}
+	strlcat(str, itoa(value, cnv, 10), size);
+}
+

@@ -27,3 +27,5 @@ char * cmpcpystr(char *pstr, char start, char termintor, char *ready, uint16_t l
 size_t strset(char* to, char* from);
 
 #endif /* MAIN_UTILS_H_ */
+
+void twoDigit(int value, char *str, size_t size);

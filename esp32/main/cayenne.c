@@ -1,8 +1,5 @@
 /*
- * cayenne.c
- *
- *  Created on: 10 мая 2019 г.
- *      Author: Administrator
+ * Send and receive cloud cayenne.mydevices.com
  */
 
 #include <stdlib.h>
@@ -20,7 +17,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/semphr.h"
+#include "freertos/queue.h"
 
 static const char *TAG = "CAYEN";
 
@@ -55,9 +52,23 @@ param_t params[PARAMS_COUNT] = {	// @formatter:off
 		};
 
 cay_reciv_cb_t reciveTopic, pubSuccess;	//callback function for recive data from broker and receive answer from published
-cay_send_cb_t sendData;	//callback function for send data to broker.
 
-time_t dtSend = -1;			//undefined time
+#define CONFIRM_NO_MES			-1
+#define WAIT_MES_MAX_LEN		3				//1 - counter, 2 - bat, 3 - raw sensor
+#define CONFIRM_COUNTER_MES		0
+#define CONFIRM_BAT_MES			1
+#define CONFIRM_RAW_SENSOR_MES	2
+
+//use critical section only!
+static portMUX_TYPE confirmMesLock = portMUX_INITIALIZER_UNLOCKED;
+
+typedef struct {
+	cay_send_cb_t func; 				//callback function for send data to broker.
+	int id_mes_send;					//id message send to broker, for qos>0 only!
+	int id_mes_confirm;					//id confirm message
+} sendControl_t;
+
+sendControl_t messageConfirm[WAIT_MES_MAX_LEN];
 
 char*
 CayenneTopic(const char *type, const char *channal) {
@@ -81,8 +92,17 @@ CayenneTopic(const char *type, const char *channal) {
 	return msg;
 }
 
-esp_err_t Cayenne_send_reg(cay_send_cb_t send_cb, cay_reciv_cb_t answer_cb){
-	sendData = send_cb;
+//registry function for send to broker
+//send_counter_cb - for send counter
+//send_bat_volt_cb - for send battery voltage
+//send_cnt_raw_cb - for send raw data sensor
+//answer_cb - the function is called after receiving a response to all transfers.
+esp_err_t Cayenne_send_reg(cay_send_cb_t send_counter_cb, cay_send_cb_t send_bat_volt_cb, cay_send_cb_t send_cnt_raw_cb, cay_reciv_cb_t answer_cb) {
+	portENTER_CRITICAL(&confirmMesLock);
+	messageConfirm[CONFIRM_COUNTER_MES].func = send_counter_cb;
+	messageConfirm[CONFIRM_BAT_MES].func = send_bat_volt_cb;
+	messageConfirm[CONFIRM_RAW_SENSOR_MES].func = send_cnt_raw_cb;
+	portEXIT_CRITICAL(&confirmMesLock);
 	pubSuccess = answer_cb;
 	return ESP_OK;
 }
@@ -145,21 +165,19 @@ esp_err_t save_cay_params(void) {
 	return ret;
 }
 
-esp_err_t CayenneChangeInteger(const uint8_t chanal, const char *sensorType, const uint32_t value, const int qos) {
+int CayenneChangeInteger(const uint8_t chanal, const char *sensorType, const uint32_t value, const int qos) {
 
-	esp_err_t ret = ESP_ERR_INVALID_STATE;
+	int ret = -1;
 	if (mqtt_client) {
 #define CHANAL_NUM_LEN_MAX 10
 		char *chanalString = (char*) calloc(CHANAL_NUM_LEN_MAX, sizeof(char));
 		sprintf(chanalString, "%d", chanal);
-
 		char *topic = CayenneTopic(MQTT_CAYENNE_TYPE_DATA, chanalString);
 #define VALUE_LEN 20 //Типа 20 цифр данные
 		char *result = calloc(strlen(sensorType) + VALUE_LEN, sizeof(char));
 		sprintf(result, sensorType, value);
 		ESP_LOGI(TAG, "pub topic = %s result = %s", topic, result);
-		if (esp_mqtt_client_publish(mqtt_client, topic, result, strlen(result), qos, MQTT_RETAIN_OFF) >= 0)
-			ret = ESP_OK;
+		ret = esp_mqtt_client_publish(mqtt_client, topic, result, strlen(result), qos, MQTT_RETAIN_OFF);
 		free(result);
 		free(topic);
 		free(chanalString);
@@ -243,6 +261,40 @@ esp_err_t Cayenne_reciv_reg(uint8_t chanal, cay_reciv_cb_t func) {	//Регистрация
 	return ESP_OK;
 }
 
+int SendData(cay_send_cb_t funcGetdata) {
+	uint8_t chanal;
+	char *sensorType = NULL;
+	uint32_t value;
+	int id_msg = -1;
+	if (funcGetdata) {
+		ESP_LOGI(TAG, "cb send start");
+		if (funcGetdata(&chanal, &sensorType, &value) == ESP_OK) {
+			ESP_LOGI(TAG, "sens type %s", sensorType);
+			if (sensorType && strlen(sensorType) > 0) {
+				ESP_LOGI(TAG, "pub start");
+				id_msg = CayenneChangeInteger(chanal, sensorType, value, MQTT_QOS_TYPE_AT_LEAST_ONCE);	//necessarily MQTT_QOS_TYPE_AT_LEAST_ONCE!
+				free(sensorType);
+			}
+		}
+	}
+	return id_msg;
+}
+
+void vSendDataTask(void *Param) {
+	int id_msg, i;
+	while (1) {
+		for(i=0;i<WAIT_MES_MAX_LEN;i++){
+			if (messageConfirm[i].func){
+				id_msg = SendData(messageConfirm[i].func);
+				portENTER_CRITICAL(&confirmMesLock);
+				messageConfirm[i].id_mes_send = id_msg;
+				portEXIT_CRITICAL(&confirmMesLock);
+			}
+		}
+		vTaskSuspend(NULL);
+	}
+}
+
 esp_err_t Cayenne_event_handler(esp_mqtt_event_handle_t event) {
 	esp_mqtt_client_handle_t client = event->client;
 	char *topic = NULL;
@@ -256,20 +308,7 @@ esp_err_t Cayenne_event_handler(esp_mqtt_event_handle_t event) {
 		ESP_LOGI(TAG, "dev = %s", cayenn_cfg.deviceName);
 		if (esp_mqtt_client_publish(client, topic, cayenn_cfg.deviceName, strlen(cayenn_cfg.deviceName), MQTT_QOS_TYPE_AT_MOST_ONCE, MQTT_RETAIN_OFF) >= 0) {
 			ESP_LOGI(TAG, "connect sent publish successful");
-			if (sendData) {
-				ESP_LOGI(TAG, "cb send start");
-				uint8_t chanal;
-				char *sensorType = NULL;
-				uint32_t value;
-				if (sendData(&chanal, &sensorType, &value) == ESP_OK) {
-					ESP_LOGI(TAG, "sens type %s", sensorType);
-					if (sensorType && strlen(sensorType) > 0) {
-						ESP_LOGI(TAG, "pub start");
-						CayenneChangeInteger(chanal, sensorType, value, MQTT_QOS_TYPE_AT_LEAST_ONCE);
-						free(sensorType);
-					}
-				}
-			}
+			xTaskCreate(vSendDataTask, "vSendDataTask", 2048, NULL, 5, NULL);
 		}
 		//CayenneSubscribe(&cayenn_cfg, PARAM_CHANAL_LED_UPDATE);
 		break;
@@ -283,8 +322,21 @@ esp_err_t Cayenne_event_handler(esp_mqtt_event_handle_t event) {
 		ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
 		break;
 	case MQTT_EVENT_PUBLISHED:	//Only if qos > MQTT_QOS_TYPE_AT_MOST_ONCE
-		dtSend = time(NULL);
 		ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
+		int i = 0;
+		for (; i < WAIT_MES_MAX_LEN; i++) {
+			if (messageConfirm[i].id_mes_send == event->msg_id) {
+				messageConfirm[i].id_mes_confirm = event->msg_id;
+			}
+		}
+		for (i = 0; i < WAIT_MES_MAX_LEN; i++) {
+			if ((messageConfirm[i].id_mes_confirm != messageConfirm[i].id_mes_send) || (messageConfirm[i].id_mes_send == CONFIRM_NO_MES)) {
+				break;
+			}
+		}
+		for (i = 0; i < WAIT_MES_MAX_LEN; i++) {
+			messageConfirm[i].id_mes_send = CONFIRM_NO_MES;
+		}
 		if (pubSuccess) {
 			int id_msg = event->msg_id;
 			ESP_LOGI(TAG, "cb pub start");
@@ -346,6 +398,13 @@ void Cayenne_app_start(void) {
 		mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
 		if (mqtt_client) {
 			ESP_LOGI(TAG, "start client");
+			portENTER_CRITICAL(&confirmMesLock);
+			int i;
+			for (i = 0; i < WAIT_MES_MAX_LEN; i++) {
+				messageConfirm[i].id_mes_send = CONFIRM_NO_MES;
+				messageConfirm[i].id_mes_confirm = CONFIRM_NO_MES;
+			}
+			portEXIT_CRITICAL(&confirmMesLock);
 			esp_mqtt_client_start(mqtt_client);
 		}
 		free(tmp);
@@ -361,10 +420,6 @@ esp_err_t Cayenne_app_stop(void) { //Close all connect, return ESP_OK - closed p
 	return ret;
 }
 
-time_t CayenneGetLastLinkDate(void) {
-	return dtSend;
-}
-
 esp_err_t Cayenne_Init(void) {
 	esp_err_t ret = ESP_ERR_NOT_SUPPORTED;
 	uint8_t i = 0;
@@ -374,7 +429,9 @@ esp_err_t Cayenne_Init(void) {
 			break;
 		}
 	}
-	sendData = NULL;
+	for (; i < WAIT_MES_MAX_LEN; i++) {
+		messageConfirm[i].func = NULL;
+	}
 	pubSuccess = NULL;
 	return read_cay_params();
 }

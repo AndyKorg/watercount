@@ -6,13 +6,9 @@
 #define MAIN_ULP_SENSOR_H_
 #include <time.h>
 #include <stdint.h>
-
-typedef enum {
-	SENSOR_ALARM_NO = 0,			//sensor is Ok
-	SENSOR_ALARM_SHOT_CIR = 1,		//short circuit
-	SENSOR_ALARM_BREAK = 2,			//Sensor break
-	SENSOR_ALARM_LEVEL = 3			//Failed to determine sensor status due to incorrect levels
-} sensor_state_t;
+#include <stdbool.h>
+#include "esp_attr.h"
+#include "common.h"
 
 /* This function is called once after power-on reset, to load ULP program into
  * RTC memory and configure the ADC and e.t.
@@ -25,6 +21,9 @@ uint16_t sensor_raw(void);	//raw last result sensor
 bool battery_low(void);		//battery is low
 uint32_t bat_voltage(void);
 void RTC_IRAM_ATTR wake_stub(void); // Function which runs after exit from deep sleep
-sensor_state_t sensor_state(void);
+sensor_status_t sensor_state(void);
+
+void setSecond(time_t value);
+time_t getSecond();
 
 #endif /* MAIN_ULP_SENSOR_H_ */

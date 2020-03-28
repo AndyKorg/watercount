@@ -15,6 +15,7 @@
 
 #include "lwip/err.h"
 #include "lwip/sys.h"
+#include "esp_sntp.h"
 
 #include "nvs_flash.h"
 #include "nvs.h"
@@ -24,6 +25,7 @@
 
 #include "http_srv.h"
 #include "cayenne.h"
+
 
 //#include "ota_client.h"
 
@@ -114,6 +116,7 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 	switch (event_id) {
 	case IP_EVENT_STA_GOT_IP:
 		ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
+		sntp_init();
 		Cayenne_app_start();
 		start_webserver();
 		xEventGroupSetBits(wifi_event_group, WIFI_GOT_IP_BIT);

@@ -2,47 +2,37 @@
  * Display of various parameters.
  */
 
-#include "display.h"
-
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "esp_attr.h"
+#include "utils.h"
 #include "display/epd1in54.h"
 #include "display/epdpaint.h"
 
-#include "wifi.h"
-#include "cayenne.h"
-#include "ulp_sensor.h"
-
 #include "esp_log.h"
+
+#include "display.h"
 
 //fixed cursor position for
 RTC_SLOW_ATTR uint16_t countPos;		//Digit counter
 RTC_SLOW_ATTR uint16_t freeAreaY;		//Free area after digit counter
+RTC_SLOW_ATTR uint16_t powerPosX;		//battery voltage position x
 
-int16_t powerPosX, powerPosY,		//Заряд батареи по X и по Y
-		sCheckBatPos,				//Надпись "проверено" для батареи
+
+//Positions cursor
+int16_t powerPosY,					//Заряд батареи по X и по Y
+		CheckBatPos,				//Надпись "проверено" для батареи
 		dtCheckPos,					//Дата проверки батареи
-		sSendPos,					//Надпись "передано" для wifi
+		SendPos,					//Надпись "передано" для wifi
 		dtSendPos					//Дата передачи данных на сервер
 		;
-
-//debug!
-time_t dtCheckPower;
 
 //static const char *TAG = "ULP";
 
 //just turn off the display, because inclusion is controlled by this module.
 void displayPowerOff(void) {
 	lcd_setup_pin(LCD_POWER_OFF);
-}
-
-inline void twoDigit(int value, char *str, size_t size) {
-	char cnv[10];
-	if (value < 10) {
-		strlcat(str, "0", size);
-	}
-	strlcat(str, itoa(value, cnv, 10), size);
 }
 
 // Prints the date, returns the position x at which the output was finished
@@ -54,40 +44,40 @@ int dtShow(time_t value, int x) {
 	if (value == NULL_DATE) {
 		strlcpy(s, NULL_DATE_STR, sizeof(s));
 	} else {
-		struct tm *t = localtime(&value);
-		if (t) {
-			twoDigit(t->tm_mday, s, sizeof(s));
-			strlcat(s, ".", sizeof(s));
-			twoDigit(t->tm_mon + 1, s, sizeof(s));
-			strlcat(s, ".", sizeof(s));
-			strlcat(s, itoa((t->tm_year + 1900), cnv, 10), sizeof(s));
-			strlcat(s, " ", sizeof(s));
-			twoDigit(t->tm_hour, s, sizeof(s));
-			strlcat(s, ":", sizeof(s));
-			twoDigit(t->tm_min, s, sizeof(s));
-			strlcat(s, ":", sizeof(s));
-			twoDigit(t->tm_sec, s, sizeof(s));
-		}
+		setenv("TZ", TIMEZONE, 1);
+		tzset();
+		struct tm t;
+		localtime_r(&value, &t);
+		twoDigit(t.tm_mday, s, sizeof(s));
+		strlcat(s, ".", sizeof(s));
+		twoDigit(t.tm_mon + 1, s, sizeof(s));
+		strlcat(s, ".", sizeof(s));
+		strlcat(s, itoa((t.tm_year + 1900), cnv, 10), sizeof(s));
+		strlcat(s, " ", sizeof(s));
+		twoDigit(t.tm_hour, s, sizeof(s));
+		strlcat(s, ":", sizeof(s));
+		twoDigit(t.tm_min, s, sizeof(s));
+		strlcat(s, ":", sizeof(s));
+		twoDigit(t.tm_sec, s, sizeof(s));
 	}
 	epdClear(UNCOLORED); //Clear paint
 	return epdDrawStringAt(x, 0, s, &FontStreched72, COLORED);
 }
 
-//Выводит напряжение на батарее до двух знаков после запятой, возвращает позицию х на которй был закончен вывод
-int batShow(int x) {
+//Show battery voltage from x position.
+//return end position
+int batShow(int x, uint32_t bat_mV) {
 	char s[10], tmp[10];
 	memset(s, 0, sizeof(s));
 	memset(tmp, 0, sizeof(tmp));
-	uint32_t bat_mV = bat_voltage();
 	strlcat(s, " ", sizeof(s));
-	if (bat_mV>1000){
-		strlcat(s, itoa((bat_mV/1000), tmp, 10), sizeof(s));
-	}
-	else{
+	if (bat_mV > 1000) {
+		strlcat(s, itoa((bat_mV / 1000), tmp, 10), sizeof(s));
+	} else {
 		strlcat(s, "0", sizeof(s));
 	}
 	strlcat(s, ".", sizeof(s));
-	strlcat(s, itoa(((bat_mV - ((bat_mV/1000)*1000))/10), tmp, 10), sizeof(s));
+	strlcat(s, itoa(((bat_mV - ((bat_mV / 1000) * 1000)) / 10), tmp, 10), sizeof(s));
 	strlcat(s, " V", sizeof(s));
 	return epdDrawStringAt(x, 0, s, &FontStreched72, COLORED);
 }
@@ -118,12 +108,12 @@ void ePatternMemoryInit() {
 	memset(s, 0, sizeof(s));
 	strlcpy(s, "батарея", sizeof(s));
 	powerPosX = epdDrawStringAt(0, 0, s, &FontStreched72, COLORED);
-	batShow(powerPosX);
+	//batShow(0, 0);
 	epdSetPatternMemory(Paint.image, 0, powerPosY, Paint.width, FontStreched72.Height + 3);
 
 	//Заголовок даты проверки
 	cursor += FontStreched72.Height + 3;
-	sCheckBatPos = cursor;
+	CheckBatPos = cursor;
 	epdClear(UNCOLORED);
 	memset(s, 0, sizeof(s));
 	strlcpy(s, "проверено", sizeof(s));
@@ -133,12 +123,13 @@ void ePatternMemoryInit() {
 	//Дата проверки
 	cursor += FontStreched72.Height + 3;
 	dtCheckPos = cursor;
-	dtShow(dtCheckPower, 0);
+	memset(s, 0, sizeof(s));
+	strlcpy(s, NULL_DATE_STR, sizeof(s));
 	epdSetPatternMemory(Paint.image, 0, cursor, Paint.width, FontStreched72.Height + 3);
 
 	//Заголовок даты отправки
 	cursor += FontStreched72.Height + 3;
-	sSendPos = cursor;
+	SendPos = cursor;
 	epdClear(UNCOLORED);
 	memset(s, 0, sizeof(s));
 	strlcpy(s, "передано", sizeof(s));
@@ -149,11 +140,11 @@ void ePatternMemoryInit() {
 	cursor += FontStreched72.Height + 3;
 	dtSendPos = cursor;
 	epdClear(UNCOLORED);
-	dtShow(CayenneGetLastLinkDate(), 0);
+	//dtShow(CayenneGetLastLinkDate(), 0);
 	epdSetPatternMemory(Paint.image, 0, cursor, Paint.width, FontStreched72.Height + 3);
 }
 
-void displayInit(clear_dispaly_t Cmd){
+void displayInit(clear_dispaly_t Cmd) {
 
 	Paint.rotate = ROTATE_0;
 	Paint.width = 200;			//Холст для рисования для одной строки
@@ -189,31 +180,31 @@ int digitalShowDebug(char *value) {
 		strlcpy(prev, s, sizeof(s));
 		epdClear(UNCOLORED);	//Очистить paint для рисования
 		epdDrawStringAt(0, 0, s, &FontStreched72, COLORED);
-		epdSetPatternMemory(Paint.image, 0, sCheckBatPos, Paint.width, FontStreched72.Height + 3);
+		epdSetPatternMemory(Paint.image, 0, CheckBatPos, Paint.width, FontStreched72.Height + 3);
 		epdDisplayPattern();	//out display
 	}
 	return 0;
 }
 
-void displayShow(void) {
+void displayShow(uint32_t sensor_count, sensor_status_t sensr, bool wifiPramIsEmpty, time_t sendBroker, uint32_t bat_mV) {
 	char s[100];
 
 	lcd_setup_pin(LCD_POWER_ON);
 
-	//Заряд батареи
+	//battery voltage
 	epdClear(UNCOLORED);
-	batShow(0);				//слово "батарея" уже есть на экране, поэтому в буфер выводится от 0
+	batShow(0, bat_mV);//from 0, word "battery" already show
 	epdSetPatternMemory(Paint.image, powerPosX, powerPosY, Paint.width, FontStreched72.Height + 3);
 
 	//Цифры счетчика
-	uint32_t tmp = sensor_count(NULL);
+	uint32_t tmp = sensor_count;
 	if (tmp > COUNT_SHOW_MAX) {
 		tmp = COUNT_SHOW_MAX;
 		epdClear(UNCOLORED);
 		memset(s, 0, sizeof(s));
 		strlcpy(s, "ПЕРЕПОЛНЕНИЕ", sizeof(s));
 		epdDrawStringAt(0, 0, s, &FontStreched72, COLORED);
-		epdSetPatternMemory(Paint.image, 0, sCheckBatPos, Paint.width, FontStreched72.Height + 3);
+		epdSetPatternMemory(Paint.image, 0, CheckBatPos, Paint.width, FontStreched72.Height + 3);
 	}
 	epdClear(UNCOLORED);
 	memset(s, 0, sizeof(s));
@@ -221,7 +212,7 @@ void displayShow(void) {
 	epdSetPatternMemory(Paint.image, 0, countPos, Paint.width, Fontfont39pixel_h_digit.Height + 5);
 	//Дата измерения батареи или авария датчика
 	epdClear(UNCOLORED);
-	switch (sensor_state()) {
+	switch (sensr.status) {
 	case SENSOR_ALARM_BREAK:
 		epdDrawStringAt(0, 0, "ОБРЫВ", &FontStreched72, COLORED);
 		break;
@@ -230,7 +221,7 @@ void displayShow(void) {
 		break;
 	case SENSOR_ALARM_NO:
 		//дата измерения батареи
-		dtShow(dtCheckPower, 0);
+		dtShow(sensr.timeCheck, 0);
 		break;
 	default:
 		break;
@@ -239,16 +230,16 @@ void displayShow(void) {
 
 	//wifi and client mqtt state
 	epdClear(UNCOLORED);
-	if (wifi_paramIsEmpty()) {
+	if (wifiPramIsEmpty) {
 		epdDrawStringAt(0, 0, "передано", &FontStreched72, COLORED);
 	} else {
 		epdDrawStringAt(0, 0, "wifi не настроен", &FontStreched72, COLORED);
 	}
-	epdSetPatternMemory(Paint.image, 0, sSendPos, Paint.width, FontStreched72.Height + 3);
+	epdSetPatternMemory(Paint.image, 0, SendPos, Paint.width, FontStreched72.Height + 3);
 
 	//time send to broker
 	epdClear(UNCOLORED);
-	dtShow(CayenneGetLastLinkDate(), 0);
+	dtShow(sendBroker, 0);
 	epdSetPatternMemory(Paint.image, 0, dtSendPos, Paint.width, FontStreched72.Height + 3);
 
 	epdDisplayPattern();	//out display
