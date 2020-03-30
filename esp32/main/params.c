@@ -1,5 +1,5 @@
 /*
- *
+ * Managed parameters
  */
 
 #include "params.h"

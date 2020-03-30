@@ -40,7 +40,7 @@ typedef esp_err_t (*handler_save)(void);
  * @param[in]  maxLen    Maximum length of parameter value
  * @param[in]  cb_read	 Pointer function read of parameter value
  * @param[in]  cb_write	 Pointer function write of parameter value
- * @param[in]  cb_commit Pointer function read of parameter value
+ * @param[in]  cb_commit Pointer function save of parameter value to storage
  *
  * @return
  *             - ESP_OK if parameter name was set successfully

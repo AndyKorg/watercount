@@ -3,6 +3,9 @@
 #include "esp_sleep.h"
 #include "esp_log.h"
 
+#include "params.h"
+#include "version.h"
+
 #include "HAL_GPIO.h"
 #include "ulp_sensor.h"
 
@@ -21,7 +24,7 @@
 
 #include "sntp_client.h"
 
-#define SETTING_TIMEOUT_S	60
+#define SETTING_TIMEOUT_S	60			//timeout sleep
 #define APP_CORE_ID			(portNUM_PROCESSORS-1)
 
 #define SLEEP_PERIOD_S		3600		//sleep period cpu,
@@ -33,6 +36,10 @@
 #define	WATERCOUNTER_CHANL	1			//Number channel from cloud for counter water
 #define	BAT_CHANL			2			//for battery
 #define	RAW_CHANL			3			//for raw data sensor
+
+//parameters for html page
+#define VERSION_PARAM		"version"
+#define	WATERCOUNTER_PARAM	"watercount"
 
 typedef enum {
 	alarmSemafor, alarmSleepTask, alarmUlpStart, alarmDispalyShow
@@ -162,6 +169,33 @@ void time_sync_notification_cb(struct timeval *tv) {
 	xSemaphoreGive(xTimeReady);
 }
 
+//version on html page
+esp_err_t read_version_param(const paramName_t paramName, char *value, size_t maxLen) {
+	sprintf(value, "%d.%d.%d.%d", VERSION_APPLICATION.part[VERSION_MAJOR], VERSION_APPLICATION.part[VERSION_MINOR], VERSION_APPLICATION.part[VERSION_PATCH],
+			VERSION_APPLICATION.part[VERSION_BUILD]);
+	return ESP_OK;
+}
+
+//counter on html page - read and write
+esp_err_t read_counter_param(const paramName_t paramName, char *value, size_t maxLen) {
+	sprintf(value, "%d", sensor_count(NULL));
+	return ESP_OK;
+}
+
+esp_err_t write_counter_param(const paramName_t paramName, const char *value, size_t maxLen) {
+	if (paramName && value) {
+		if (strlen(value) <= maxLen) {
+			uint32_t newCount;
+			if (sscanf(value, "%d", &newCount) == 1) {
+				ESP_LOGI(TAG, "counter param %d save", sensor_count(&newCount));
+			}
+			return ESP_OK;
+		}
+	}
+	ESP_LOGE(TAG, "counter save error");
+	return ESP_ERR_INVALID_ARG;
+}
+
 void app_main(void) {
 
 	esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
@@ -211,6 +245,8 @@ void app_main(void) {
 		if (attemptAP_RTC) { // check count attempt AP
 			ESP_LOGI(TAG, "AP mode startup!");
 			attemptAP_RTC--;
+			paramReg(VERSION_PARAM, (VERSION_PART_COUNT * 3) + 1, read_version_param, NULL, NULL);
+			paramReg(WATERCOUNTER_PARAM, 12, read_counter_param, write_counter_param, NULL);
 			wifi_init(WIFI_MODE_AP);
 			ESP_LOGI(TAG, "AP start!");
 			xSemaphoreGive(xDispShow);
@@ -240,7 +276,7 @@ void app_main(void) {
 		wake_up_display_RTC = 0;
 		xSemaphoreGive(xDispShow); //Show display
 	} else {
-		if (cause == ESP_SLEEP_WAKEUP_ULP) {//only for not first start
+		if (cause == ESP_SLEEP_WAKEUP_ULP) { //only for not first start
 			ESP_LOGI(TAG, "disp sleep continue");
 			xSemaphoreGive(xEndDisp);
 		}
