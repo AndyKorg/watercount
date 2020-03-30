@@ -19,7 +19,6 @@ RTC_SLOW_ATTR uint16_t countPos;		//Digit counter
 RTC_SLOW_ATTR uint16_t freeAreaY;		//Free area after digit counter
 RTC_SLOW_ATTR uint16_t powerPosX;		//battery voltage position x
 
-
 //Positions cursor
 int16_t powerPosY,					//Заряд батареи по X и по Y
 		CheckBatPos,				//Надпись "проверено" для батареи
@@ -186,14 +185,14 @@ int digitalShowDebug(char *value) {
 	return 0;
 }
 
-void displayShow(uint32_t sensor_count, sensor_status_t sensr, bool wifiPramIsEmpty, time_t sendBroker, uint32_t bat_mV) {
+void displayShow(uint32_t sensor_count, sensor_status_t sensr, bool wifiPramIsSet, time_t sendBroker, uint32_t bat_mV, bool wifiModeAP, char *wifiAP_NetName) {
 	char s[100];
 
 	lcd_setup_pin(LCD_POWER_ON);
 
 	//battery voltage
 	epdClear(UNCOLORED);
-	batShow(0, bat_mV);//from 0, word "battery" already show
+	batShow(0, bat_mV);	//from 0, word "battery" already show
 	epdSetPatternMemory(Paint.image, powerPosX, powerPosY, Paint.width, FontStreched72.Height + 3);
 
 	//Цифры счетчика
@@ -230,7 +229,9 @@ void displayShow(uint32_t sensor_count, sensor_status_t sensr, bool wifiPramIsEm
 
 	//wifi and client mqtt state
 	epdClear(UNCOLORED);
-	if (wifiPramIsEmpty) {
+	if (wifiModeAP) {
+		epdDrawStringAt(0, 0, "AP IS ON", &FontStreched72, COLORED);
+	} else if (wifiPramIsSet) {
 		epdDrawStringAt(0, 0, "передано", &FontStreched72, COLORED);
 	} else {
 		epdDrawStringAt(0, 0, "wifi не настроен", &FontStreched72, COLORED);
@@ -239,7 +240,11 @@ void displayShow(uint32_t sensor_count, sensor_status_t sensr, bool wifiPramIsEm
 
 	//time send to broker
 	epdClear(UNCOLORED);
-	dtShow(sendBroker, 0);
+	if (wifiModeAP) {
+		epdDrawStringAt(0, 0, wifiAP_NetName, &FontStreched72, COLORED);
+	} else {
+		dtShow(sendBroker, 0);
+	}
 	epdSetPatternMemory(Paint.image, 0, dtSendPos, Paint.width, FontStreched72.Height + 3);
 
 	epdDisplayPattern();	//out display

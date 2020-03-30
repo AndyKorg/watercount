@@ -30,7 +30,7 @@ typedef enum {
 } clear_dispaly_t;
 
 void displayInit(clear_dispaly_t Cmd);				//And on screen
-void displayShow(uint32_t sensor_count, sensor_status_t sensr, bool wifiPramIsEmpty, time_t sendBroker, uint32_t bat_mV);
+void displayShow(uint32_t sensor_count, sensor_status_t sensr, bool wifiPramIsSet, time_t sendBroker, uint32_t bat_mV, bool wifiModeAP, char *wifiAP_NetName);
 void displayPowerOff(void);							//Only off screen!
 
 #endif /* DISPLAY_H_ */

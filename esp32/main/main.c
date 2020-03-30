@@ -152,7 +152,7 @@ void vDisplayShow(void *Param) {
 		ESP_LOGI(TAG, "display show start");
 		epdInit(lut_full_update);		//start spi, full update
 		displayInit(cdClear);
-		displayShow(sensor_count(NULL), sensor_state(), wifi_paramIsEmpty(), dtSend, bat_voltage());
+		displayShow(sensor_count(NULL), sensor_state(), wifi_paramIsSet(), dtSend, bat_voltage(), wifi_AP_isOn(), AP_SSID);
 		displayPowerOff();
 		ESP_LOGI(TAG, "Display show end");
 		xSemaphoreGive(xEndDisp);		//start sleep

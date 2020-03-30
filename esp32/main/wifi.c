@@ -191,7 +191,7 @@ bool wifi_ap_count_client(void) {
 	return false;
 }
 
-bool wifi_paramIsEmpty(void) {
+bool wifi_paramIsSet(void) {
 	if (wifi_event_group) {
 		return (xEventGroupGetBitsFromISR(wifi_event_group) & WIFI_PARAM_EXISTS);
 	}
