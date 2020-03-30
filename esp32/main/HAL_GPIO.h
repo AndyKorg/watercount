@@ -26,4 +26,7 @@
 #define EPD_SPI_HOST		VSPI_HOST		//Data/Command control pin (High for data, and low for command)
 #define EPD_DMA_CHAN    	2				//Only 1 or 2, channel 0 has limitations
 
+//i2c master
+#define I2C_MASTER_SDA		GPIO_NUM_16
+#define I2C_MASTER_SCL		GPIO_NUM_17
 #endif /* MAIN_HAL_GPIO_H_ */

@@ -29,3 +29,4 @@ size_t strset(char* to, char* from);
 #endif /* MAIN_UTILS_H_ */
 
 void twoDigit(int value, char *str, size_t size);
+uint8_t DecToBCD(uint8_t value);

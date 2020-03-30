@@ -24,7 +24,7 @@
 #define SETTING_TIMEOUT_S	60
 #define APP_CORE_ID			(portNUM_PROCESSORS-1)
 
-#define SLEEP_PERIOD_S		100			//sleep period cpu,
+#define SLEEP_PERIOD_S		3600		//sleep period cpu,
 #define	DISPALY_PERIOD_S	1			//refresh display period
 #define WIFI_SEND_PERIOD_S	1			//send data period wifi
 
@@ -44,11 +44,9 @@ xTaskHandle displayTask;
 static const char *TAG = "main";
 
 RTC_SLOW_ATTR uint32_t attemptAP_RTC; 		//count attempt mode AP
-RTC_SLOW_ATTR uint32_t attemptAP_RTC; 		//count attempt mode AP
 RTC_SLOW_ATTR uint32_t wake_up_display_RTC;	//count wake up for display
 RTC_SLOW_ATTR uint32_t wake_up_wifi_st_RTC;	//count wake up for ST
 RTC_SLOW_ATTR time_t dtSend;				//time send to cloud
-
 
 //wait and sleep
 #define SEMAPHORE_TIMEOUT	((SETTING_TIMEOUT_S*1000)/portTICK_RATE_MS)
@@ -96,7 +94,7 @@ esp_err_t sendRawSensor(uint8_t *chanal, char **sensorType, uint32_t *value) {
 	if (sensorType) {
 		ESP_LOGI(TAG, "send raw");
 		*chanal = RAW_CHANL;
-		*value = (uint32_t)sensor_raw();
+		*value = (uint32_t) sensor_raw();
 		memcpy(*sensorType, CAYENNE_ANALOG_SENSOR, strlen(CAYENNE_ANALOG_SENSOR));
 		return ESP_OK;
 	}
@@ -143,22 +141,24 @@ esp_err_t pubEnd(int data) {
 
 void vDisplayShow(void *Param) {
 	while (1) {
-		if (xSemaphoreTake(xDispShow, portMAX_DELAY) == pdPASS) {
-			ESP_LOGI(TAG, "display show start");
-			epdInit(lut_full_update);		//start spi, full update
-			displayInit(cdClear);
-			displayShow(sensor_count(NULL), sensor_state(), wifi_paramIsEmpty(), dtSend, bat_voltage());
-			displayPowerOff();
-			ESP_LOGI(TAG, "Display show end");
-			xSemaphoreGive(xEndDisp);		//start sleep
-		}
+		xSemaphoreTake(xDispShow, (SEMAPHORE_TIMEOUT/4));
+		ESP_LOGI(TAG, "display show start");
+		epdInit(lut_full_update);		//start spi, full update
+		displayInit(cdClear);
+		displayShow(sensor_count(NULL), sensor_state(), wifi_paramIsEmpty(), dtSend, bat_voltage());
+		displayPowerOff();
+		ESP_LOGI(TAG, "Display show end");
+		xSemaphoreGive(xEndDisp);		//start sleep
 	}
 }
 
 void time_sync_notification_cb(struct timeval *tv) {
 	struct tm *t = localtime(&(tv->tv_sec));
-	ESP_LOGI(TAG, "date time = %02d %02d %04d %02d %02d", t->tm_mday, t->tm_mon, t->tm_year+1900, t->tm_hour, t->tm_min);
+	ESP_LOGI(TAG, "date time = %02d %02d %04d %02d %02d", t->tm_mday, t->tm_mon, t->tm_year + 1900, t->tm_hour, t->tm_min);
 	setSecond(tv->tv_sec);
+	if (esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_ULP) { //first start
+		xSemaphoreGive(xDispShow); //Show display
+	}
 	xSemaphoreGive(xTimeReady);
 }
 
@@ -176,7 +176,7 @@ void app_main(void) {
 
 	if (cause != ESP_SLEEP_WAKEUP_ULP) { 			//first start, ulp setting need
 		attemptAP_RTC = WIFI_ANT_MODE_MAX;
-		wake_up_display_RTC = DISPALY_PERIOD_S; 	//show status
+		wake_up_display_RTC = 0; 					//showing status, if only sntp time recived
 		wake_up_wifi_st_RTC = WIFI_SEND_PERIOD_S;	//send status
 		init_ulp_program();
 		if (start_ulp_program() != ESP_OK) { 		//start ulp for sensor control
@@ -189,7 +189,7 @@ void app_main(void) {
 	xEndDisp = xSemaphoreCreateBinary();
 	xDispShow = xSemaphoreCreateBinary();
 	xTimeReady = xSemaphoreCreateBinary();
-	if ((xEndWiFi == NULL) || (xEndDisp == NULL) || (xDispShow == NULL) || (xTimeReady == NULL) ) {
+	if ((xEndWiFi == NULL) || (xEndDisp == NULL) || (xDispShow == NULL) || (xTimeReady == NULL)) {
 		alarmOff(alarmSemafor);
 		return;
 	}
@@ -240,8 +240,10 @@ void app_main(void) {
 		wake_up_display_RTC = 0;
 		xSemaphoreGive(xDispShow); //Show display
 	} else {
-		ESP_LOGI(TAG, "disp sleep continue");
-		xSemaphoreGive(xEndDisp);
+		if (cause == ESP_SLEEP_WAKEUP_ULP) {//only for not first start
+			ESP_LOGI(TAG, "disp sleep continue");
+			xSemaphoreGive(xEndDisp);
+		}
 	}
 
 }
