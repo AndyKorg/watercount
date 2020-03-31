@@ -26,7 +26,6 @@
 #include "http_srv.h"
 #include "cayenne.h"
 
-
 //#include "ota_client.h"
 
 static const char *TAG = "WIFI";
@@ -199,7 +198,7 @@ bool wifi_paramIsSet(void) {
 }
 
 void wifi_init(wifi_mode_t mode) {
-	static uint8_t netIfInit = 0;
+	static bool netIfInit = false;
 
 	if ((wifi_sta_param.ssid[0] == 0) && ((mode == WIFI_MODE_STA) || (mode == WIFI_MODE_APSTA))) {		//parameters ST is empty
 		if (mode == WIFI_MODE_APSTA) {	//Only AP
@@ -211,16 +210,16 @@ void wifi_init(wifi_mode_t mode) {
 
 	if (!netIfInit) {
 		esp_netif_init();
-		netIfInit = 1;
+		netIfInit = true;
+		ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+		ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL));
+		ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
+
+		wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT()
+		;
+		ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 	}
-	ESP_ERROR_CHECK(esp_event_loop_create_default());
-
-	ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL));
-	ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &ip_event_handler, NULL));
-
-	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT()
-	;
-	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
 	if (mode == WIFI_MODE_APSTA) {
 		ESP_LOGI(TAG, "wifi MIX mode start");

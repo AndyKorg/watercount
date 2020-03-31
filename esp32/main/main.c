@@ -45,8 +45,10 @@ typedef enum {
 	alarmSemafor, alarmSleepTask, alarmUlpStart, alarmDispalyShow
 } alarm_system_t;
 
-SemaphoreHandle_t xEndWiFi, xEndDisp, xDispShow, xTimeReady; //ready to sleep
-xTaskHandle displayTask;
+SemaphoreHandle_t xEndWiFi, 	//Wifi operation end
+		xEndDisp,				//display show end
+		xDispShow,				//can be displayed.
+		xTimeReady; 			//time received
 
 static const char *TAG = "main";
 
@@ -54,11 +56,13 @@ RTC_SLOW_ATTR uint32_t attemptAP_RTC; 		//count attempt mode AP
 RTC_SLOW_ATTR uint32_t wake_up_display_RTC;	//count wake up for display
 RTC_SLOW_ATTR uint32_t wake_up_wifi_st_RTC;	//count wake up for ST
 RTC_SLOW_ATTR time_t dtSend;				//time send to cloud
+RTC_SLOW_ATTR bool autoSwitchST_RTC;		//there was an automatic switch to st mode. Reset only if the jumper is switched to st or power off
 
 //wait and sleep
 #define SEMAPHORE_TIMEOUT	((SETTING_TIMEOUT_S*1000)/portTICK_RATE_MS)
 
 void vSleepTask(void *vParameters) {
+	uint32_t sleepPeriod;
 
 	while (1) {
 		ESP_LOGI(TAG, "sleep task start");
@@ -68,13 +72,22 @@ void vSleepTask(void *vParameters) {
 		if (wifi_ap_count_client()) {	//client AP connect
 			continue;
 		}
+		if (wifi_AP_isOn()) {			//timeout AP mode, switch to sleep mode
+			wake_up_display_RTC = DISPALY_PERIOD_S-1; 	//showing now
+			wake_up_wifi_st_RTC = WIFI_SEND_PERIOD_S-1;	//send mow
+			autoSwitchST_RTC = true;
+			sleepPeriod = 1;
+		}
+		else {
+			sleepPeriod = SLEEP_PERIOD_S;
+		}
 		displayPowerOff();
 		if (esp_sleep_enable_ulp_wakeup() == ESP_OK) {
 			ESP_LOGI(TAG, "sleep start\r");
 //		esp_bluedroid_disable();
 			//esp_bt_controller_disable(),
 			//esp_wifi_stop();
-			set_ulp_SleepPeriod(SLEEP_PERIOD_S);
+			set_ulp_SleepPeriod(sleepPeriod);
 			// Set the wake stub function
 			esp_set_deep_sleep_wake_stub(&wake_stub);
 			esp_deep_sleep_start();
@@ -146,6 +159,7 @@ esp_err_t pubEnd(int data) {
 	return ESP_OK;
 }
 
+//show data on display
 void vDisplayShow(void *Param) {
 	while (1) {
 		xSemaphoreTake(xDispShow, (SEMAPHORE_TIMEOUT/4));
@@ -159,6 +173,7 @@ void vDisplayShow(void *Param) {
 	}
 }
 
+//sntp time callback
 void time_sync_notification_cb(struct timeval *tv) {
 	struct tm *t = localtime(&(tv->tv_sec));
 	ESP_LOGI(TAG, "date time = %02d %02d %04d %02d %02d", t->tm_mday, t->tm_mon, t->tm_year + 1900, t->tm_hour, t->tm_min);
@@ -198,8 +213,6 @@ esp_err_t write_counter_param(const paramName_t paramName, const char *value, si
 
 void app_main(void) {
 
-	esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
-
 	//Initialize NVS
 	esp_err_t ret = nvs_flash_init();
 	if (ret == ESP_ERR_NVS_NO_FREE_PAGES) {
@@ -208,10 +221,11 @@ void app_main(void) {
 	}
 	ESP_ERROR_CHECK(ret);
 
-	if (cause != ESP_SLEEP_WAKEUP_ULP) { 			//first start, ulp setting need
+	if (esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_ULP) { 			//first start, ulp setting need
 		attemptAP_RTC = WIFI_ANT_MODE_MAX;
 		wake_up_display_RTC = 0; 					//showing status, if only sntp time recived
 		wake_up_wifi_st_RTC = WIFI_SEND_PERIOD_S;	//send status
+		autoSwitchST_RTC = false;						//swith auto off
 		init_ulp_program();
 		if (start_ulp_program() != ESP_OK) { 		//start ulp for sensor control
 			alarmOff(alarmUlpStart);
@@ -233,14 +247,17 @@ void app_main(void) {
 		return;
 	}
 
-	if (xTaskCreatePinnedToCore(vDisplayShow, "vDisplayShow", 2048, NULL, 5, &displayTask, APP_CORE_ID) != pdPASS) {
+	if (xTaskCreatePinnedToCore(vDisplayShow, "vDisplayShow", 2048, NULL, 5, NULL, APP_CORE_ID) != pdPASS) {
 		alarmOff(alarmDispalyShow);
 		return;
 	}
 
 	wifi_init_param();
 	gpio_set_direction(STARTUP_MODE_PIN, GPIO_MODE_INPUT);
-	if (gpio_get_level(STARTUP_MODE_PIN) && (!battery_low())) { //setting mode - wifi AP on and wait SETTING_TIMEOUT_S
+	if (gpio_get_level(STARTUP_MODE_PIN) == 0) {
+		autoSwitchST_RTC = false;
+	}
+	if (gpio_get_level(STARTUP_MODE_PIN) && (!battery_low()) && (!autoSwitchST_RTC)) { //setting mode - wifi AP on and wait SETTING_TIMEOUT_S
 		ESP_LOGI(TAG, "ap attempt = %d", attemptAP_RTC);
 		if (attemptAP_RTC) { // check count attempt AP
 			ESP_LOGI(TAG, "AP mode startup!");
@@ -254,14 +271,13 @@ void app_main(void) {
 		}
 	}
 	//start ST mode if parameter is set, or show problem and not start mode ST
-	if (cause == ESP_SLEEP_WAKEUP_ULP) {
+	if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_ULP) {
 		wake_up_wifi_st_RTC++;
 		wake_up_display_RTC++;
 	} else
 		ESP_LOGI(TAG, "wake_up: wifi %d disp %d", wake_up_wifi_st_RTC, wake_up_display_RTC);
 
 	if ((wake_up_wifi_st_RTC == WIFI_SEND_PERIOD_S) && (!battery_low())) {
-		ESP_LOGI(TAG, "Wifi send");
 		sntp_init_app(time_sync_notification_cb);
 		Cayenne_send_reg(sendCounter, sendBat, sendRawSensor, pubEnd);
 		wifi_init(WIFI_MODE_STA);
@@ -276,11 +292,10 @@ void app_main(void) {
 		wake_up_display_RTC = 0;
 		xSemaphoreGive(xDispShow); //Show display
 	} else {
-		if (cause == ESP_SLEEP_WAKEUP_ULP) { //only for not first start
+		if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_ULP) { //only for not first start
 			ESP_LOGI(TAG, "disp sleep continue");
 			xSemaphoreGive(xEndDisp);
 		}
 	}
-
 }
 

@@ -80,7 +80,6 @@ uint32_t bat_voltage(void) {
 
 	adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
 	esp_adc_cal_value_t type = esp_adc_cal_characterize(ADC_UNIT_1, SENSOR_BAT_ATTEN, ADC_WIDTH_SENSOR, 1100, adc_chars);
-	ESP_LOGI(TAG, "type vref %d", type);
 	return (esp_adc_cal_raw_to_voltage((ulp_batarey_voltage & UINT16_MAX), adc_chars)+ADC_COEFF_BAT_mV);
 }
 

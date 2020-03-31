@@ -38,7 +38,7 @@ void lcd_setup_pin(lcd_pwr_mode_t mode) {
 	}
 
 	if (mode == LCD_POWER_OFF) {
-		ESP_LOGI(TAG, "POWER OFF START");
+		ESP_LOGI(TAG, "power off start");
 		//spi stop
 		spi_bus_remove_device(spi);
 		spi_bus_free(EPD_SPI_HOST);
@@ -68,7 +68,7 @@ void lcd_setup_pin(lcd_pwr_mode_t mode) {
 		lcd_rtc_pin_down(EPD_POWER_PIN);
 		lcd_rtc_pin_down(EPD_BUSY_PIN); //busy, after power down display!
 	} else {
-		ESP_LOGI(TAG, "POWER ON START");
+		ESP_LOGI(TAG, "power on start");
 		//Others pins for SPI in init function setting
 		//Power
 		rtc_gpio_hold_dis(EPD_POWER_PIN);
