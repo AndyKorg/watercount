@@ -185,7 +185,16 @@ int digitalShowDebug(char *value) {
 	return 0;
 }
 
-void displayShow(uint32_t sensor_count, sensor_status_t sensr, bool wifiPramIsSet, time_t sendBroker, uint32_t bat_mV, bool wifiModeAP, char *wifiAP_NetName) {
+void displayShow(				//
+		uint32_t sensor_count,		//
+		sensor_status_t sensr,		//
+		bool wifiPramIsSet,			//
+		time_t sendBroker,			//
+		uint32_t bat_mV,			//
+		bool wifiModeAP,			//
+		char *wifiAP_NetName,		//
+		bool wifAP_clientConnect	//
+		) {
 	char s[100];
 
 	lcd_setup_pin(LCD_POWER_ON);
@@ -230,7 +239,9 @@ void displayShow(uint32_t sensor_count, sensor_status_t sensr, bool wifiPramIsSe
 	//wifi and client mqtt state
 	epdClear(UNCOLORED);
 	if (wifiModeAP) {
-		epdDrawStringAt(0, 0, "AP IS ON", &FontStreched72, COLORED);
+		memset(s, 0, sizeof(s));
+		sprintf(s, "AP вкл.клиенты:%s", wifAP_clientConnect?"да":"нет");
+		epdDrawStringAt(0, 0, s, &FontStreched72, COLORED);
 	} else if (wifiPramIsSet) {
 		epdDrawStringAt(0, 0, "передано", &FontStreched72, COLORED);
 	} else {

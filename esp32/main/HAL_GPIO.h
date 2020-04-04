@@ -1,5 +1,6 @@
 /*
  * define only gpio
+ * define pin and adc chanal in ulp\sensor.S
  */
 
 #ifndef MAIN_HAL_GPIO_H_
@@ -12,7 +13,18 @@
 #define SENSOR_NAMUR_ATTEN	ADC_ATTEN_11db
 #define SENSOR_BAT_CHANAL 	ADC1_CHANNEL_5	//GPIO_NUM_33
 #define SENSOR_BAT_ATTEN	ADC_ATTEN_11db
-#define ADC_WIDTH_SENSOR	ADC_WIDTH_11Bit
+#define ADC_WIDTH_SENSOR	ADC_WIDTH_12Bit
+//threshold sensors
+#define BAT_LOW				2000 	//3v low threshold only SENSOR_BAT_ATTEN = ADC_ATTEN_11db and ADC_WIDTH_SENSOR = ADC_WIDTH_12Bit
+#define ADC_COEFF_BAT		1692946 //correction factor of the voltage divider
+#define DEFAULT_VREF		1090	//measure VREF voltage, example adc2_vref_to_gpio(GPIO_NUM_25);
+//default threshold NAMUR sensor
+#define SENSOR_THR_HIGH_MAX	1700 	//more than this threshold is considered a shot circuit
+#define SENSOR_THR_HIGH		1300 	//is considered a line high
+#define SENSOR_THR_LOW		700 	//less than this threshold is considered a line low
+#define SENSOR_THR_LOW_MIN	300 	//less than this threshold is considered a line break
+
+
 //power enable sensor
 #define SENSOR_POWER_EN		GPIO_NUM_4
 //dispaly

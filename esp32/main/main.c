@@ -1,3 +1,8 @@
+/*
+ * TODO: вывод количества подключенных клиентов в AP
+ * Отследивать состояние перемычки AP-ST как в режиме AP, так и в режиме ST (когда только ULP работает)
+ * вывести период отсылки и период вывода на дисплей, вывести настройку порогов adc для namur в html
+ */
 #include "stddef.h"
 #include "nvs_flash.h"
 #include "esp_sleep.h"
@@ -24,10 +29,7 @@
 
 #include "sntp_client.h"
 
-#define SETTING_TIMEOUT_S	60			//timeout sleep
-#define APP_CORE_ID			(portNUM_PROCESSORS-1)
-
-#define SLEEP_PERIOD_S		3600		//sleep period cpu,
+#define SLEEP_PERIOD_S		100//3600		//sleep period cpu,
 #define	DISPALY_PERIOD_S	1			//refresh display period
 #define WIFI_SEND_PERIOD_S	1			//send data period wifi
 
@@ -37,9 +39,12 @@
 #define	BAT_CHANL			2			//for battery
 #define	RAW_CHANL			3			//for raw data sensor
 
+#define SETTING_TIMEOUT_S	60			//timeout sleep
+#define APP_CORE_ID			(portNUM_PROCESSORS-1)
+
 //parameters for html page
-#define VERSION_PARAM		"version"
-#define	WATERCOUNTER_PARAM	"watercount"
+#define VERSION_PARAM				"version"
+#define	WATERCOUNTER_PARAM			"watercount"
 
 typedef enum {
 	alarmSemafor, alarmSleepTask, alarmUlpStart, alarmDispalyShow
@@ -73,12 +78,11 @@ void vSleepTask(void *vParameters) {
 			continue;
 		}
 		if (wifi_AP_isOn()) {			//timeout AP mode, switch to sleep mode
-			wake_up_display_RTC = DISPALY_PERIOD_S-1; 	//showing now
-			wake_up_wifi_st_RTC = WIFI_SEND_PERIOD_S-1;	//send mow
+			wake_up_display_RTC = DISPALY_PERIOD_S - 1; 	//showing now
+			wake_up_wifi_st_RTC = WIFI_SEND_PERIOD_S - 1;	//send mow
 			autoSwitchST_RTC = true;
 			sleepPeriod = 1;
-		}
-		else {
+		} else {
 			sleepPeriod = SLEEP_PERIOD_S;
 		}
 		displayPowerOff();
@@ -166,7 +170,7 @@ void vDisplayShow(void *Param) {
 		ESP_LOGI(TAG, "display show start");
 		epdInit(lut_full_update);		//start spi, full update
 		displayInit(cdClear);
-		displayShow(sensor_count(NULL), sensor_state(), wifi_paramIsSet(), dtSend, bat_voltage(), wifi_AP_isOn(), AP_SSID);
+		displayShow(sensor_count(NULL), sensor_state(), wifi_paramIsSet(), dtSend, bat_voltage(), wifi_AP_isOn(), AP_SSID, wifi_ap_count_client());
 		displayPowerOff();
 		ESP_LOGI(TAG, "Display show end");
 		xSemaphoreGive(xEndDisp);		//start sleep
@@ -225,8 +229,11 @@ void app_main(void) {
 		attemptAP_RTC = WIFI_ANT_MODE_MAX;
 		wake_up_display_RTC = 0; 					//showing status, if only sntp time recived
 		wake_up_wifi_st_RTC = WIFI_SEND_PERIOD_S;	//send status
-		autoSwitchST_RTC = false;						//swith auto off
-		init_ulp_program();
+		autoSwitchST_RTC = false;					//swith auto off
+		if (init_ulp_program() != ESP_OK){
+			alarmOff(alarmUlpStart);
+			return;
+		}
 		if (start_ulp_program() != ESP_OK) { 		//start ulp for sensor control
 			alarmOff(alarmUlpStart);
 			return;
@@ -247,7 +254,7 @@ void app_main(void) {
 		return;
 	}
 
-	if (xTaskCreatePinnedToCore(vDisplayShow, "vDisplayShow", 2048, NULL, 5, NULL, APP_CORE_ID) != pdPASS) {
+	if (xTaskCreatePinnedToCore(vDisplayShow, "vDisplayShow", 4096, NULL, 5, NULL, APP_CORE_ID) != pdPASS) {
 		alarmOff(alarmDispalyShow);
 		return;
 	}

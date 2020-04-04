@@ -17,5 +17,4 @@ typedef struct {
 	time_t timeCheck;
 } sensor_status_t;
 
-
 #endif /* MAIN_COMMON_H_ */
