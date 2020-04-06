@@ -1,7 +1,9 @@
 /*
- * TODO: вывод количества подключенных клиентов в AP
+ * TODO: вывод количества подключенных клиентов в AP - ready
  * Отследивать состояние перемычки AP-ST как в режиме AP, так и в режиме ST (когда только ULP работает)
- * вывести период отсылки и период вывода на дисплей, вывести настройку порогов adc для namur в html
+ * вывести период отсылки и период вывода на дисплей,
+ * вывести в режиме AP значение сенсора и его напряжение вместо сообщеиня - обырв и пр.
+ * вывести настройку порогов adc для namur в html - ready
  */
 #include "stddef.h"
 #include "nvs_flash.h"
@@ -216,7 +218,6 @@ esp_err_t write_counter_param(const paramName_t paramName, const char *value, si
 }
 
 void app_main(void) {
-
 	//Initialize NVS
 	esp_err_t ret = nvs_flash_init();
 	if (ret == ESP_ERR_NVS_NO_FREE_PAGES) {
@@ -230,7 +231,7 @@ void app_main(void) {
 		wake_up_display_RTC = 0; 					//showing status, if only sntp time recived
 		wake_up_wifi_st_RTC = WIFI_SEND_PERIOD_S;	//send status
 		autoSwitchST_RTC = false;					//swith auto off
-		if (init_ulp_program() != ESP_OK){
+		if (init_ulp_program() != ESP_OK) {
 			alarmOff(alarmUlpStart);
 			return;
 		}

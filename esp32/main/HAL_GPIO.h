@@ -12,12 +12,21 @@
 #define SENSOR_NAMUR_CHANAL ADC1_CHANNEL_6	//GPIO_NUM_34
 #define SENSOR_NAMUR_ATTEN	ADC_ATTEN_11db
 #define SENSOR_BAT_CHANAL 	ADC1_CHANNEL_5	//GPIO_NUM_33
+#define SENSOR_PWR_CHANAL 	ADC1_CHANNEL_3	//GPIO_NUM_39
 #define SENSOR_BAT_ATTEN	ADC_ATTEN_11db
 #define ADC_WIDTH_SENSOR	ADC_WIDTH_12Bit
+#define	ADC_MAX_VALUE		4096			//from ADC_WIDTH_SENSOR!
 //threshold sensors
 #define BAT_LOW				2000 	//3v low threshold only SENSOR_BAT_ATTEN = ADC_ATTEN_11db and ADC_WIDTH_SENSOR = ADC_WIDTH_12Bit
 #define ADC_COEFF_BAT		1692946 //correction factor of the voltage divider
 #define DEFAULT_VREF		1090	//measure VREF voltage, example adc2_vref_to_gpio(GPIO_NUM_25);
+//coefficient divider from sensor and power, multiply by 100.
+#define COEFF_POWER			170		//voltage divider on resistors 330kOm and 470kOm
+#define COEFF_SENSOR_HI		148		//voltage divider on resistors 2,7kOm and 5,6kOm - NAMUR sensor high
+#define COEFF_SENSOR_LO		278		//voltage divider on resistors 2,7kOm and (5,6kOm parallel 2,2kOm) -  NAMUR sensor low
+#define	COEFF_DEVIDER		100
+#define SENSOR_OFFSET		300
+
 //default threshold NAMUR sensor
 #define SENSOR_THR_HIGH_MAX	1700 	//more than this threshold is considered a shot circuit
 #define SENSOR_THR_HIGH		1300 	//is considered a line high

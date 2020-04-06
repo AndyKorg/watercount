@@ -254,16 +254,26 @@ esp_err_t init_ulp_program(void) {
 	if (ulp_load_binary(0, ulp_main_bin_start, (ulp_main_bin_end - ulp_main_bin_start) / sizeof(uint32_t)) == ESP_OK) {
 		ESP_LOGI(TAG, "ADC start");
 		if ((adc1_config_channel_atten(SENSOR_NAMUR_CHANAL, SENSOR_NAMUR_ATTEN) == ESP_OK)
-				&& (adc1_config_channel_atten(SENSOR_BAT_CHANAL, SENSOR_BAT_ATTEN) == ESP_OK)) {
+				&& (adc1_config_channel_atten(SENSOR_BAT_CHANAL, SENSOR_BAT_ATTEN) == ESP_OK)
+				&& (adc1_config_channel_atten(SENSOR_PWR_CHANAL, SENSOR_NAMUR_ATTEN) == ESP_OK)
+				) {
 			if (adc1_config_width(ADC_WIDTH_SENSOR) == ESP_OK) {
-				adc1_ulp_enable();
 				ESP_LOGI(TAG, "ADC config OK");
 				/* Set low and high thresholds*/
+				uint64_t power = ((uint64_t) adc1_get_raw(SENSOR_PWR_CHANAL)) * 100 * COEFF_POWER;
+				adc1_ulp_enable(); //WARNING! Only adc1_get_raw use! Else blocked read adc ulp!
+				sensor_threshold_t threshold;
+				threshold.high = (uint16_t)(power/COEFF_SENSOR_HI/COEFF_DEVIDER)-SENSOR_OFFSET;
+				threshold.low = (uint16_t)(power/COEFF_SENSOR_LO/COEFF_DEVIDER)+SENSOR_OFFSET;
+				threshold.high_max = threshold.high+(ADC_MAX_VALUE-threshold.high)/2;
+				threshold.low_min = threshold.low-(threshold.low/2);
+				sensor_threshold(&threshold);
+				save_thrSensor_params();
 				paramReg(SENS_THR_HIGH_MAX_PARAM, SENS_THR_LEN_MAX, read_thrSensor_param, write_thrSensor_param, save_thrSensor_params);
 				paramReg(SENS_THR_HIGH_PARAM, SENS_THR_LEN_MAX, read_thrSensor_param, write_thrSensor_param, save_thrSensor_params);
 				paramReg(SENS_THR_LOW_PARAM, SENS_THR_LEN_MAX, read_thrSensor_param, write_thrSensor_param, save_thrSensor_params);
 				paramReg(SENS_THR_LOW_MIN_PARAM, SENS_THR_LEN_MAX, read_thrSensor_param, write_thrSensor_param, save_thrSensor_params);
-				read_thrSensor_params();
+				//read_thrSensor_params();
 
 				ulp_previous_sensor_value = 0;
 
