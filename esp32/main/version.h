@@ -19,10 +19,10 @@
 #define VERSION_MAX_DIGIT		6 //+ null symbol
 
 #define VERSION_PART_COUNT		4
-#define VERSION_MAJOR			0
-#define VERSION_MINOR			1
-#define VERSION_PATCH			2
-#define VERSION_BUILD			3
+#define VERSION_PART_MAJOR		0
+#define VERSION_PART_MINOR		1
+#define VERSION_PART_PATCH		2
+#define VERSION_PART_BUILD		3
 
 typedef struct {
     uint16_t part[VERSION_PART_COUNT]; //major.minor.patch.build

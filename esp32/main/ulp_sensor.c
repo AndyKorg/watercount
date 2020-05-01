@@ -261,6 +261,8 @@ esp_err_t init_ulp_program(void) {
 				ESP_LOGI(TAG, "ADC config OK");
 				/* Set low and high thresholds*/
 				uint64_t power = ((uint64_t) adc1_get_raw(SENSOR_PWR_CHANAL)) * 100 * COEFF_POWER;
+				//uint64_t bat = ((uint64_t) adc1_get_raw(SENSOR_BAT_CHANAL)) * 100 * COEFF_POWER;
+				ESP_LOGI(TAG, "pwr = %d bat = %d", adc1_get_raw(SENSOR_PWR_CHANAL), adc1_get_raw(SENSOR_BAT_CHANAL));
 				adc1_ulp_enable(); //WARNING! Only adc1_get_raw use! Else blocked read adc ulp!
 				sensor_threshold_t threshold;
 				threshold.high = (uint16_t)(power/COEFF_SENSOR_HI/COEFF_DEVIDER)-SENSOR_OFFSET;

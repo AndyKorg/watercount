@@ -4,6 +4,7 @@
  * вывести период отсылки и период вывода на дисплей,
  * вывести в режиме AP значение сенсора и его напряжение вместо сообщеиня - обырв и пр.
  * вывести настройку порогов adc для namur в html - ready
+ * вывести низкое напряжение на батарее
  */
 #include "stddef.h"
 #include "nvs_flash.h"
@@ -30,6 +31,7 @@
 #include "cayenne.h"
 
 #include "sntp_client.h"
+#include "ota_client.h"
 
 #define SLEEP_PERIOD_S		100//3600		//sleep period cpu,
 #define	DISPALY_PERIOD_S	1			//refresh display period
@@ -55,7 +57,8 @@ typedef enum {
 SemaphoreHandle_t xEndWiFi, 	//Wifi operation end
 		xEndDisp,				//display show end
 		xDispShow,				//can be displayed.
-		xTimeReady; 			//time received
+		xTimeReady, 			//time received
+		xEndOta;				//check firmware upgrade check end
 
 static const char *TAG = "main";
 
@@ -190,10 +193,15 @@ void time_sync_notification_cb(struct timeval *tv) {
 	xSemaphoreGive(xTimeReady);
 }
 
+//ota check end
+void ota_check_end(void){
+	xSemaphoreGive(xEndOta);
+}
+
 //version on html page
 esp_err_t read_version_param(const paramName_t paramName, char *value, size_t maxLen) {
-	sprintf(value, "%d.%d.%d.%d", VERSION_APPLICATION.part[VERSION_MAJOR], VERSION_APPLICATION.part[VERSION_MINOR], VERSION_APPLICATION.part[VERSION_PATCH],
-			VERSION_APPLICATION.part[VERSION_BUILD]);
+	sprintf(value, "%d.%d.%d.%d", VERSION_APPLICATION.part[VERSION_PART_MAJOR], VERSION_APPLICATION.part[VERSION_PART_MINOR], VERSION_APPLICATION.part[VERSION_PART_PATCH],
+			VERSION_APPLICATION.part[VERSION_PART_BUILD]);
 	return ESP_OK;
 }
 
@@ -245,7 +253,8 @@ void app_main(void) {
 	xEndDisp = xSemaphoreCreateBinary();
 	xDispShow = xSemaphoreCreateBinary();
 	xTimeReady = xSemaphoreCreateBinary();
-	if ((xEndWiFi == NULL) || (xEndDisp == NULL) || (xDispShow == NULL) || (xTimeReady == NULL)) {
+	xEndOta = xSemaphoreCreateBinary();
+	if ((xEndWiFi == NULL) || (xEndDisp == NULL) || (xDispShow == NULL) || (xTimeReady == NULL) || (xEndOta == NULL)) {
 		alarmOff(alarmSemafor);
 		return;
 	}
@@ -273,6 +282,7 @@ void app_main(void) {
 			paramReg(VERSION_PARAM, (VERSION_PART_COUNT * 3) + 1, read_version_param, NULL, NULL);
 			paramReg(WATERCOUNTER_PARAM, 12, read_counter_param, write_counter_param, NULL);
 			wifi_init(WIFI_MODE_AP);
+			ota_init(ota_check_end);
 			ESP_LOGI(TAG, "AP start!");
 			xSemaphoreGive(xDispShow);
 			return;
@@ -288,6 +298,7 @@ void app_main(void) {
 	if ((wake_up_wifi_st_RTC == WIFI_SEND_PERIOD_S) && (!battery_low())) {
 		sntp_init_app(time_sync_notification_cb);
 		Cayenne_send_reg(sendCounter, sendBat, sendRawSensor, pubEnd);
+		ota_init(ota_check_end);
 		wifi_init(WIFI_MODE_STA);
 		wake_up_wifi_st_RTC = 0;
 	} else {

@@ -25,6 +25,7 @@
 
 #include "http_srv.h"
 #include "cayenne.h"
+#include "ota_client.h"
 
 //#include "ota_client.h"
 
@@ -117,8 +118,9 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
 		ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
 		sntp_init();
 		Cayenne_app_start();
-		start_webserver();
+		//start_webserver(); //http server in client mode not work
 		xEventGroupSetBits(wifi_event_group, WIFI_GOT_IP_BIT);
+		ota_check();
 		break;
 	default:
 		break;
@@ -253,25 +255,6 @@ void wifi_init(wifi_mode_t mode) {
 	}
 
 	ESP_ERROR_CHECK(esp_wifi_start());
-}
-
-void task_ota_check(void *pvParameters) {
-
-	const TickType_t oneMinute = (60 * 1000) / portTICK_PERIOD_MS; //one minute
-	uint32_t count_period = 0;
-
-	while (1) {
-		if (count_period == 0) {
-			if (xEventGroupGetBitsFromISR(wifi_event_group) & WIFI_GOT_IP_BIT) {
-				ESP_LOGI(TAG, "ota check");
-//				ota_check();
-				count_period = OTA_CHECK_PERIOD_MIN + 1;
-			}
-		} else {
-			count_period--;
-		}
-		vTaskDelay(oneMinute);
-	}
 }
 
 void wifi_init_param(void) {
