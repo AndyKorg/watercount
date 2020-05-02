@@ -67,8 +67,14 @@ void Cayenne_app_start(void);								//mqtt start
 esp_err_t Cayenne_app_stop(void);							//close all connect, ESP_OK - start process end
 esp_err_t Cayenne_reciv_reg(uint8_t chanal, cay_reciv_cb_t func);	//registered event on chanal
 esp_err_t CayenneUpdateActuator(const uint8_t chanal, const uint32_t value);	//update value after event dashboard
-esp_err_t Cayenne_send_reg(cay_send_cb_t send_counter_cb, cay_send_cb_t send_bat_volt_cb, cay_send_cb_t send_cnt_raw_cb, cay_reciv_cb_t answer_cb);	//callback registered send data and answer
 int CayenneChangeInteger(const uint8_t chanal, const char *sensorType, const uint32_t value, const int qos);	//Send integer value
+// @formatter:off
+esp_err_t Cayenne_send_reg(cay_send_cb_t send_counter_cb,
+			cay_send_cb_t send_bat_volt_cb,
+			cay_send_cb_t send_cnt_raw_cb,
+			cay_send_cb_t send_version_cb,
+			cay_reciv_cb_t answer_cb);
+// @formatter:on
 
 /*
  * Sensor type's

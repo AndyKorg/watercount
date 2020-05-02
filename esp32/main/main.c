@@ -42,6 +42,7 @@
 #define	WATERCOUNTER_CHANL	1			//Number channel from cloud for counter water
 #define	BAT_CHANL			2			//for battery
 #define	RAW_CHANL			3			//for raw data sensor
+#define	VERSION_CHANL		4			//for version app
 
 #define SETTING_TIMEOUT_S	60			//timeout sleep
 #define APP_CORE_ID			(portNUM_PROCESSORS-1)
@@ -88,6 +89,7 @@ void vSleepTask(void *vParameters) {
 			autoSwitchST_RTC = true;
 			sleepPeriod = 1;
 		} else {
+			xSemaphoreTake(xEndOta, SEMAPHORE_TIMEOUT);
 			sleepPeriod = SLEEP_PERIOD_S;
 		}
 		displayPowerOff();
@@ -158,6 +160,19 @@ esp_err_t sendCounter(uint8_t *chanal, char **sensorType, uint32_t *value) {
 		return ESP_OK;
 	}
 	ESP_LOGI(TAG, "send no memory");
+	return ESP_ERR_NO_MEM;
+}
+
+//send version to cloud
+esp_err_t sendVersion(uint8_t *chanal, char **sensorType, uint32_t *value) {
+	ESP_LOGI(TAG, "send start version");
+	*sensorType = calloc(strlen(CAYENNE_ANALOG_SENSOR) + 12, sizeof(char)); //12 digit for uint32_t
+	if (sensorType) {
+		*chanal = VERSION_CHANL;
+		*value = VERSION_BUILD_NUM;
+		memcpy(*sensorType, CAYENNE_ANALOG_SENSOR, strlen(CAYENNE_ANALOG_SENSOR));
+		return ESP_OK;
+	}
 	return ESP_ERR_NO_MEM;
 }
 
@@ -282,7 +297,6 @@ void app_main(void) {
 			paramReg(VERSION_PARAM, (VERSION_PART_COUNT * 3) + 1, read_version_param, NULL, NULL);
 			paramReg(WATERCOUNTER_PARAM, 12, read_counter_param, write_counter_param, NULL);
 			wifi_init(WIFI_MODE_AP);
-			ota_init(ota_check_end);
 			ESP_LOGI(TAG, "AP start!");
 			xSemaphoreGive(xDispShow);
 			return;
@@ -297,7 +311,7 @@ void app_main(void) {
 
 	if ((wake_up_wifi_st_RTC == WIFI_SEND_PERIOD_S) && (!battery_low())) {
 		sntp_init_app(time_sync_notification_cb);
-		Cayenne_send_reg(sendCounter, sendBat, sendRawSensor, pubEnd);
+		Cayenne_send_reg(sendCounter, sendBat, sendRawSensor, sendVersion, pubEnd);
 		ota_init(ota_check_end);
 		wifi_init(WIFI_MODE_STA);
 		wake_up_wifi_st_RTC = 0;

@@ -54,10 +54,11 @@ param_t params[PARAMS_COUNT] = {	// @formatter:off
 cay_reciv_cb_t reciveTopic, pubSuccess;	//callback function for recive data from broker and receive answer from published
 
 #define CONFIRM_NO_MES			-1
-#define WAIT_MES_MAX_LEN		3				//1 - counter, 2 - bat, 3 - raw sensor
+#define WAIT_MES_MAX_LEN		5				//1 - counter, 2 - bat, 3 - raw sensor, 4 - version
 #define CONFIRM_COUNTER_MES		0
 #define CONFIRM_BAT_MES			1
 #define CONFIRM_RAW_SENSOR_MES	2
+#define CONFIRM_VERSION_MES		3
 
 //use critical section only!
 static portMUX_TYPE confirmMesLock = portMUX_INITIALIZER_UNLOCKED;
@@ -96,12 +97,20 @@ CayenneTopic(const char *type, const char *channal) {
 //send_counter_cb - for send counter
 //send_bat_volt_cb - for send battery voltage
 //send_cnt_raw_cb - for send raw data sensor
+//send_version_cb - for send version app
 //answer_cb - the function is called after receiving a response to all transfers.
-esp_err_t Cayenne_send_reg(cay_send_cb_t send_counter_cb, cay_send_cb_t send_bat_volt_cb, cay_send_cb_t send_cnt_raw_cb, cay_reciv_cb_t answer_cb) {
+// @formatter:off
+esp_err_t Cayenne_send_reg(cay_send_cb_t send_counter_cb,
+			cay_send_cb_t send_bat_volt_cb,
+			cay_send_cb_t send_cnt_raw_cb,
+			cay_send_cb_t send_version_cb,
+			cay_reciv_cb_t answer_cb) {
+	// @formatter:on
 	portENTER_CRITICAL(&confirmMesLock);
 	messageConfirm[CONFIRM_COUNTER_MES].func = send_counter_cb;
 	messageConfirm[CONFIRM_BAT_MES].func = send_bat_volt_cb;
 	messageConfirm[CONFIRM_RAW_SENSOR_MES].func = send_cnt_raw_cb;
+	messageConfirm[CONFIRM_VERSION_MES].func = send_version_cb;
 	portEXIT_CRITICAL(&confirmMesLock);
 	pubSuccess = answer_cb;
 	return ESP_OK;
@@ -283,8 +292,8 @@ int SendData(cay_send_cb_t funcGetdata) {
 void vSendDataTask(void *Param) {
 	int id_msg, i;
 	while (1) {
-		for(i=0;i<WAIT_MES_MAX_LEN;i++){
-			if (messageConfirm[i].func){
+		for (i = 0; i < WAIT_MES_MAX_LEN; i++) {
+			if (messageConfirm[i].func) {
 				id_msg = SendData(messageConfirm[i].func);
 				portENTER_CRITICAL(&confirmMesLock);
 				messageConfirm[i].id_mes_send = id_msg;
@@ -324,23 +333,29 @@ esp_err_t Cayenne_event_handler(esp_mqtt_event_handle_t event) {
 	case MQTT_EVENT_PUBLISHED:	//Only if qos > MQTT_QOS_TYPE_AT_MOST_ONCE
 		ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
 		int i = 0;
-		for (; i < WAIT_MES_MAX_LEN; i++) {
+		for (; i < WAIT_MES_MAX_LEN; i++) { //set confirmed message
 			if (messageConfirm[i].id_mes_send == event->msg_id) {
 				messageConfirm[i].id_mes_confirm = event->msg_id;
 			}
 		}
-		for (i = 0; i < WAIT_MES_MAX_LEN; i++) {
-			if ((messageConfirm[i].id_mes_confirm != messageConfirm[i].id_mes_send) || (messageConfirm[i].id_mes_send == CONFIRM_NO_MES)) {
-				break;
+		bool wait_answer = false;
+		for (i = 0; i < WAIT_MES_MAX_LEN; i++) { //check if everything is confirmed?
+			if (messageConfirm[i].id_mes_send == CONFIRM_NO_MES) { //need check confirm?
+				wait_answer = (messageConfirm[i].id_mes_confirm != messageConfirm[i].id_mes_send);
+				if (wait_answer) {
+					break;
+				}
 			}
 		}
-		for (i = 0; i < WAIT_MES_MAX_LEN; i++) {
-			messageConfirm[i].id_mes_send = CONFIRM_NO_MES;
-		}
-		if (pubSuccess) {
-			int id_msg = event->msg_id;
-			ESP_LOGI(TAG, "cb pub start");
-			pubSuccess(id_msg);
+		if (!wait_answer) { //all transmit confirmed
+			for (i = 0; i < WAIT_MES_MAX_LEN; i++) {
+				messageConfirm[i].id_mes_send = CONFIRM_NO_MES;
+			}
+			if (pubSuccess) {
+				int id_msg = event->msg_id;
+				ESP_LOGI(TAG, "all pub!");
+				pubSuccess(id_msg);
+			}
 		}
 		break;
 	case MQTT_EVENT_DATA:
