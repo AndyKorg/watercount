@@ -54,7 +54,6 @@ param_t params[PARAMS_COUNT] = {	// @formatter:off
 cay_reciv_cb_t reciveTopic, pubSuccess;	//callback function for recive data from broker and receive answer from published
 
 #define CONFIRM_NO_MES			-1
-#define WAIT_MES_MAX_LEN		5				//1 - counter, 2 - bat, 3 - raw sensor, 4 - version
 #define CONFIRM_COUNTER_MES		0
 #define CONFIRM_BAT_MES			1
 #define CONFIRM_RAW_SENSOR_MES	2
@@ -69,7 +68,7 @@ typedef struct {
 	int id_mes_confirm;					//id confirm message
 } sendControl_t;
 
-sendControl_t messageConfirm[WAIT_MES_MAX_LEN];
+sendControl_t messageConfirm[CAYENN_MAX_NUM_CHANAL];
 
 char*
 CayenneTopic(const char *type, const char *channal) {
@@ -93,31 +92,20 @@ CayenneTopic(const char *type, const char *channal) {
 	return msg;
 }
 
-//registry function for send to broker
-//send_counter_cb - for send counter
-//send_bat_volt_cb - for send battery voltage
-//send_cnt_raw_cb - for send raw data sensor
-//send_version_cb - for send version app
-//answer_cb - the function is called after receiving a response to all transfers.
-// @formatter:off
-esp_err_t Cayenne_send_reg(cay_send_cb_t send_counter_cb,
-			cay_send_cb_t send_bat_volt_cb,
-			cay_send_cb_t send_cnt_raw_cb,
-			cay_send_cb_t send_version_cb,
-			cay_reciv_cb_t answer_cb) {
-	// @formatter:on
-	portENTER_CRITICAL(&confirmMesLock);
-	messageConfirm[CONFIRM_COUNTER_MES].func = send_counter_cb;
-	messageConfirm[CONFIRM_BAT_MES].func = send_bat_volt_cb;
-	messageConfirm[CONFIRM_RAW_SENSOR_MES].func = send_cnt_raw_cb;
-	messageConfirm[CONFIRM_VERSION_MES].func = send_version_cb;
-	portEXIT_CRITICAL(&confirmMesLock);
+esp_err_t Cayenne_send_reg(uint8_t chanal, cay_send_cb_t send_cb) {
+	esp_err_t ret = ESP_ERR_INVALID_SIZE;
+	if (chanal < CAYENN_MAX_NUM_CHANAL) {
+		messageConfirm[chanal].func = send_cb;
+		ret = ESP_OK;
+	}
+	return ret;
+}
+
+void Cayenne_pub_end_reg(cay_reciv_cb_t answer_cb) {
 	pubSuccess = answer_cb;
-	return ESP_OK;
 }
 
 esp_err_t read_cay_param(const paramName_t paramName, char *value, size_t maxLen) {
-
 	return read_nvs_param(STORAGE_CAY_PARAM, paramName, value, maxLen);
 }
 
@@ -292,7 +280,7 @@ int SendData(cay_send_cb_t funcGetdata) {
 void vSendDataTask(void *Param) {
 	int id_msg, i;
 	while (1) {
-		for (i = 0; i < WAIT_MES_MAX_LEN; i++) {
+		for (i = 0; i < CAYENN_MAX_NUM_CHANAL; i++) {
 			if (messageConfirm[i].func) {
 				id_msg = SendData(messageConfirm[i].func);
 				portENTER_CRITICAL(&confirmMesLock);
@@ -333,13 +321,13 @@ esp_err_t Cayenne_event_handler(esp_mqtt_event_handle_t event) {
 	case MQTT_EVENT_PUBLISHED:	//Only if qos > MQTT_QOS_TYPE_AT_MOST_ONCE
 		ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
 		int i = 0;
-		for (; i < WAIT_MES_MAX_LEN; i++) { //set confirmed message
+		for (; i < CAYENN_MAX_NUM_CHANAL; i++) { //set confirmed message
 			if (messageConfirm[i].id_mes_send == event->msg_id) {
 				messageConfirm[i].id_mes_confirm = event->msg_id;
 			}
 		}
 		bool wait_answer = false;
-		for (i = 0; i < WAIT_MES_MAX_LEN; i++) { //check if everything is confirmed?
+		for (i = 0; i < CAYENN_MAX_NUM_CHANAL; i++) { //check if everything is confirmed?
 			if (messageConfirm[i].id_mes_send == CONFIRM_NO_MES) { //need check confirm?
 				wait_answer = (messageConfirm[i].id_mes_confirm != messageConfirm[i].id_mes_send);
 				if (wait_answer) {
@@ -348,7 +336,7 @@ esp_err_t Cayenne_event_handler(esp_mqtt_event_handle_t event) {
 			}
 		}
 		if (!wait_answer) { //all transmit confirmed
-			for (i = 0; i < WAIT_MES_MAX_LEN; i++) {
+			for (i = 0; i < CAYENN_MAX_NUM_CHANAL; i++) {
 				messageConfirm[i].id_mes_send = CONFIRM_NO_MES;
 			}
 			if (pubSuccess) {
@@ -415,7 +403,7 @@ void Cayenne_app_start(void) {
 			ESP_LOGI(TAG, "start client");
 			portENTER_CRITICAL(&confirmMesLock);
 			int i;
-			for (i = 0; i < WAIT_MES_MAX_LEN; i++) {
+			for (i = 0; i < CAYENN_MAX_NUM_CHANAL; i++) {
 				messageConfirm[i].id_mes_send = CONFIRM_NO_MES;
 				messageConfirm[i].id_mes_confirm = CONFIRM_NO_MES;
 			}
@@ -444,7 +432,7 @@ esp_err_t Cayenne_Init(void) {
 			break;
 		}
 	}
-	for (; i < WAIT_MES_MAX_LEN; i++) {
+	for (; i < CAYENN_MAX_NUM_CHANAL; i++) {
 		messageConfirm[i].func = NULL;
 	}
 	pubSuccess = NULL;

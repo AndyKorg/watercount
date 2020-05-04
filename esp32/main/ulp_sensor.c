@@ -63,13 +63,6 @@ extern const uint8_t ulp_main_bin_end[] asm("_binary_ulp_main_bin_end");
 
 static const char *TAG = "ULP";
 
-typedef struct {
-	uint16_t high_max;
-	uint16_t high;
-	uint16_t low_min;
-	uint16_t low;
-} sensor_threshold_t;
-
 sensor_status_t sensor_state(void) {
 	sensor_status_t ret;
 	ret.status = ulp_sensor_state & UINT16_MAX;
@@ -131,7 +124,7 @@ void sensor_power_pin_enable(void) {
 
 //sensor threshold for namur in html page
 sensor_threshold_t sensor_threshold(sensor_threshold_t *newValue) {
-	if (newValue) {
+	if (newValue != NULL) {
 		ulp_high_max_thr_sensor = (uint32_t) newValue->high_max;
 		ulp_high_thr_sensor = (uint32_t) newValue->high;
 		ulp_low_min_thr_sensor = (uint32_t) newValue->low_min;

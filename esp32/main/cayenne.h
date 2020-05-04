@@ -12,7 +12,8 @@
 #include <time.h>
 #include "mqtt_client.h"
 
-#define CAYENN_MAX_LEN		64		//maximum length identificator
+#define CAYENN_MAX_LEN			64				//maximum length identificator
+#define	CAYENN_MAX_NUM_CHANAL	16				//maximum number channel in device
 
 //Parameters for mydevices.com (cayenne)
 #define PARAM_MQTT_HOST 			"cay_host"	//server name with schema cayeen, example: "mqtt://mqtt.mydevices.com"
@@ -68,13 +69,8 @@ esp_err_t Cayenne_app_stop(void);							//close all connect, ESP_OK - start proc
 esp_err_t Cayenne_reciv_reg(uint8_t chanal, cay_reciv_cb_t func);	//registered event on chanal
 esp_err_t CayenneUpdateActuator(const uint8_t chanal, const uint32_t value);	//update value after event dashboard
 int CayenneChangeInteger(const uint8_t chanal, const char *sensorType, const uint32_t value, const int qos);	//Send integer value
-// @formatter:off
-esp_err_t Cayenne_send_reg(cay_send_cb_t send_counter_cb,
-			cay_send_cb_t send_bat_volt_cb,
-			cay_send_cb_t send_cnt_raw_cb,
-			cay_send_cb_t send_version_cb,
-			cay_reciv_cb_t answer_cb);
-// @formatter:on
+esp_err_t Cayenne_send_reg(uint8_t chanal, cay_send_cb_t send_cb);
+void Cayenne_pub_end_reg(cay_reciv_cb_t answer_cb);
 
 /*
  * Sensor type's

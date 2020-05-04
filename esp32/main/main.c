@@ -43,6 +43,11 @@
 #define	BAT_CHANL			2			//for battery
 #define	RAW_CHANL			3			//for raw data sensor
 #define	VERSION_CHANL		4			//for version app
+#define THR_HIGH_MAX_CHANL	5			//threshold sensor
+#define THR_HIGH_CHANL		6
+#define THR_LOW_CHANL		7
+#define THR_LOW_MIN_CHANL	8
+#define SENSOR_STATE_CHANL	9			//state sensor
 
 #define SETTING_TIMEOUT_S	60			//timeout sleep
 #define APP_CORE_ID			(portNUM_PROCESSORS-1)
@@ -52,7 +57,7 @@
 #define	WATERCOUNTER_PARAM			"watercount"
 
 typedef enum {
-	alarmSemafor, alarmSleepTask, alarmUlpStart, alarmDispalyShow
+	alarmSemafor, alarmSleepTask, alarmUlpStart, alarmDispalyShow, alarmMqtt
 } alarm_system_t;
 
 SemaphoreHandle_t xEndWiFi, 	//Wifi operation end
@@ -163,6 +168,76 @@ esp_err_t sendCounter(uint8_t *chanal, char **sensorType, uint32_t *value) {
 	return ESP_ERR_NO_MEM;
 }
 
+//send max high threshold to cloud
+esp_err_t sendThrMaxHi(uint8_t *chanal, char **sensorType, uint32_t *value) {
+
+	*sensorType = calloc(strlen(CAYENNE_ANALOG_SENSOR) + 12, sizeof(char)); //12 digit for uint32_t
+	if (sensorType) {
+		*chanal = THR_HIGH_MAX_CHANL;
+		sensor_threshold_t thr = sensor_threshold(NULL);
+		*value = (uint32_t) thr.high_max;
+		memcpy(*sensorType, CAYENNE_ANALOG_SENSOR, strlen(CAYENNE_ANALOG_SENSOR));
+		return ESP_OK;
+	}
+	return ESP_ERR_NO_MEM;
+}
+
+//send high threshold to cloud
+esp_err_t sendThrHigh(uint8_t *chanal, char **sensorType, uint32_t *value) {
+
+	*sensorType = calloc(strlen(CAYENNE_ANALOG_SENSOR) + 12, sizeof(char)); //12 digit for uint32_t
+	if (sensorType) {
+		*chanal = THR_HIGH_CHANL;
+		sensor_threshold_t thr = sensor_threshold(NULL);
+		*value = (uint32_t) thr.high;
+		memcpy(*sensorType, CAYENNE_ANALOG_SENSOR, strlen(CAYENNE_ANALOG_SENSOR));
+		return ESP_OK;
+	}
+	return ESP_ERR_NO_MEM;
+}
+
+//send low minimum threshold to cloud
+esp_err_t sendThrMinLo(uint8_t *chanal, char **sensorType, uint32_t *value) {
+
+	*sensorType = calloc(strlen(CAYENNE_ANALOG_SENSOR) + 12, sizeof(char)); //12 digit for uint32_t
+	if (sensorType) {
+		*chanal = THR_LOW_MIN_CHANL;
+		sensor_threshold_t thr = sensor_threshold(NULL);
+		*value = (uint32_t) thr.low_min;
+		memcpy(*sensorType, CAYENNE_ANALOG_SENSOR, strlen(CAYENNE_ANALOG_SENSOR));
+		return ESP_OK;
+	}
+	return ESP_ERR_NO_MEM;
+}
+
+//send low threshold to cloud
+esp_err_t sendThrLow(uint8_t *chanal, char **sensorType, uint32_t *value) {
+
+	*sensorType = calloc(strlen(CAYENNE_ANALOG_SENSOR) + 12, sizeof(char)); //12 digit for uint32_t
+	if (sensorType) {
+		*chanal = THR_LOW_CHANL;
+		sensor_threshold_t thr = sensor_threshold(NULL);
+		*value = (uint32_t) thr.low;
+		memcpy(*sensorType, CAYENNE_ANALOG_SENSOR, strlen(CAYENNE_ANALOG_SENSOR));
+		return ESP_OK;
+	}
+	return ESP_ERR_NO_MEM;
+}
+
+//send sensor state to cloud
+esp_err_t sendStateSensor(uint8_t *chanal, char **sensorType, uint32_t *value) {
+
+	*sensorType = calloc(strlen(CAYENNE_COUNTER) + 12, sizeof(char)); //12 digit for uint32_t
+	if (sensorType) {
+		*chanal = SENSOR_STATE_CHANL;
+		uint32_t state = sensor_state().status;
+		*value = state;
+		memcpy(*sensorType, CAYENNE_COUNTER, strlen(CAYENNE_COUNTER));
+		return ESP_OK;
+	}
+	return ESP_ERR_NO_MEM;
+}
+
 //send version to cloud
 esp_err_t sendVersion(uint8_t *chanal, char **sensorType, uint32_t *value) {
 	ESP_LOGI(TAG, "send start version");
@@ -209,14 +284,14 @@ void time_sync_notification_cb(struct timeval *tv) {
 }
 
 //ota check end
-void ota_check_end(void){
+void ota_check_end(void) {
 	xSemaphoreGive(xEndOta);
 }
 
 //version on html page
 esp_err_t read_version_param(const paramName_t paramName, char *value, size_t maxLen) {
-	sprintf(value, "%d.%d.%d.%d", VERSION_APPLICATION.part[VERSION_PART_MAJOR], VERSION_APPLICATION.part[VERSION_PART_MINOR], VERSION_APPLICATION.part[VERSION_PART_PATCH],
-			VERSION_APPLICATION.part[VERSION_PART_BUILD]);
+	sprintf(value, "%d.%d.%d.%d", VERSION_APPLICATION.part[VERSION_PART_MAJOR], VERSION_APPLICATION.part[VERSION_PART_MINOR],
+			VERSION_APPLICATION.part[VERSION_PART_PATCH], VERSION_APPLICATION.part[VERSION_PART_BUILD]);
 	return ESP_OK;
 }
 
@@ -240,7 +315,33 @@ esp_err_t write_counter_param(const paramName_t paramName, const char *value, si
 	return ESP_ERR_INVALID_ARG;
 }
 
+inline esp_err_t cayReg(void) {
+	if (Cayenne_send_reg(WATERCOUNTER_CHANL, sendCounter) == ESP_OK) {
+		if (Cayenne_send_reg(BAT_CHANL, sendBat) == ESP_OK) {
+			if (Cayenne_send_reg(RAW_CHANL, sendRawSensor) == ESP_OK) {
+				if (Cayenne_send_reg(VERSION_CHANL, sendVersion) == ESP_OK) {
+					if (Cayenne_send_reg(THR_HIGH_MAX_CHANL, sendThrMaxHi) == ESP_OK) {
+						if (Cayenne_send_reg(THR_HIGH_CHANL, sendThrHigh) == ESP_OK) {
+							if (Cayenne_send_reg(THR_LOW_CHANL, sendThrMinLo) == ESP_OK) {
+								if (Cayenne_send_reg(THR_LOW_MIN_CHANL, sendThrLow) == ESP_OK) {
+									if (Cayenne_send_reg(SENSOR_STATE_CHANL, sendStateSensor) == ESP_OK) {
+										Cayenne_pub_end_reg(pubEnd);
+										return ESP_OK;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	alarmOff(alarmMqtt);
+	return ESP_ERR_INVALID_ARG;
+}
+
 void app_main(void) {
+
 	//Initialize NVS
 	esp_err_t ret = nvs_flash_init();
 	if (ret == ESP_ERR_NVS_NO_FREE_PAGES) {
@@ -311,9 +412,9 @@ void app_main(void) {
 
 	if ((wake_up_wifi_st_RTC == WIFI_SEND_PERIOD_S) && (!battery_low())) {
 		sntp_init_app(time_sync_notification_cb);
-		Cayenne_send_reg(sendCounter, sendBat, sendRawSensor, sendVersion, pubEnd);
 		ota_init(ota_check_end);
-		wifi_init(WIFI_MODE_STA);
+		if (cayReg() == ESP_OK)
+			wifi_init(WIFI_MODE_STA);
 		wake_up_wifi_st_RTC = 0;
 	} else {
 		ESP_LOGI(TAG, "WIFI sleep continue");

@@ -10,6 +10,13 @@
 #include "esp_attr.h"
 #include "common.h"
 
+typedef struct {
+	uint16_t high_max;
+	uint16_t high;
+	uint16_t low_min;
+	uint16_t low;
+} sensor_threshold_t;
+
 /* This function is called once after power-on reset, to load ULP program into
  * RTC memory and configure the ADC and e.t.
  */
@@ -21,6 +28,8 @@ void set_ulp_SleepPeriod(uint32_t second);
 uint32_t sensor_count(uint32_t *newValue);	//if newValue is null then no set new value counter, only return current value
 uint16_t sensor_raw(void);	//raw last result sensor
 sensor_status_t sensor_state(void);
+sensor_threshold_t sensor_threshold(sensor_threshold_t *newValue);
+
 
 bool battery_low(void);		//battery is low
 uint32_t bat_voltage(void);
