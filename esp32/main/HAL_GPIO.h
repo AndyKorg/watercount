@@ -17,8 +17,8 @@
 #define ADC_WIDTH_SENSOR	ADC_WIDTH_12Bit
 #define	ADC_MAX_VALUE		4096			//from ADC_WIDTH_SENSOR!
 //threshold sensors
-#define BAT_LOW				2500 	//3v low threshold only SENSOR_BAT_ATTEN = ADC_ATTEN_11db and ADC_WIDTH_SENSOR = ADC_WIDTH_12Bit
-#define ADC_COEFF_BAT		1692946 //correction factor of the voltage divider
+#define BAT_LOW				1700 	//2,5v low threshold only SENSOR_BAT_ATTEN = ADC_ATTEN_11db and ADC_WIDTH_SENSOR = ADC_WIDTH_12Bit
+#define ADC_COEFF_BAT		1769995 //1692946 //correction factor of the voltage divider
 #define DEFAULT_VREF		1090	//measure VREF voltage, example adc2_vref_to_gpio(GPIO_NUM_25);
 //coefficient divider from sensor and power, multiply by 100.
 #define COEFF_POWER			170		//voltage divider on resistors 330kOm and 470kOm

@@ -87,7 +87,8 @@ uint32_t bat_voltage(void) {
 	esp_adc_cal_characterize(ADC_UNIT_1, SENSOR_BAT_ATTEN, ADC_WIDTH_SENSOR, DEFAULT_VREF, adc_chars);
 	uint32_t ret = esp_adc_cal_raw_to_voltage((ulp_batarey_voltage & UINT16_MAX), adc_chars);
 	free(adc_chars);
-	//ESP_LOGI(TAG, "raw=%d mV=%d adc=%d", (ulp_batarey_voltage & UINT16_MAX), ret, adc1_get_raw(SENSOR_BAT_CHANAL)); adc1_get_raw conflict with ulp adc!
+//	ESP_LOGI(TAG, "raw=%d mV=%d adc=%d", (ulp_batarey_voltage & UINT16_MAX), ret, adc1_get_raw(SENSOR_BAT_CHANAL)); adc1_get_raw conflict with ulp adc!
+	ESP_LOGI(TAG, "raw=%d mV=%d", (ulp_batarey_voltage & UINT16_MAX), ret);
 	return (uint32_t) (((uint64_t) ret * ADC_COEFF_BAT) / (uint64_t) 1000000);
 }
 
