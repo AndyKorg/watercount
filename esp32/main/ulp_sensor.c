@@ -51,11 +51,12 @@
 #define SecondGet()						((ulp_secondLo & UINT16_MAX) | ((ulp_secondHi <<16) & (UINT16_MAX << 16)))
 
 #define CounterGet()					((ulp_sensor_countLo & UINT16_MAX) | ((ulp_sensor_countHi <<16) & (UINT16_MAX << 16)))
-#define CounterSet(val)					do{\
+/*#define CounterSet(val)					do{\
 											ulp_sensor_countLo = val & UINT16_MAX;\
 											ulp_sensor_countHi = (val>>16) & UINT16_MAX;\
 										} while(0)
 
+*/
 #define SensorCheckTime()				((ulp_sensor_check_timeLo & UINT16_MAX) | ((ulp_sensor_check_timeHi <<16) & (UINT16_MAX << 16)))
 
 extern const uint8_t ulp_main_bin_start[] asm("_binary_ulp_main_bin_start");
@@ -76,9 +77,10 @@ uint16_t sensor_raw(void) {
 }
 
 uint32_t sensor_count(uint32_t *newValue) {
-	if (newValue) {
+/*	if (newValue != NULL) {
 		CounterSet(*newValue);
 	}
+*/
 	return CounterGet();
 }
 
@@ -96,6 +98,7 @@ bool battery_low(void) {
 	return (ulp_batarey_voltage & UINT16_MAX) <= BAT_LOW;
 }
 
+//Checking battery voltage before wake
 void RTC_IRAM_ATTR wake_stub(void) {
 	if ((ulp_batarey_voltage & UINT16_MAX) > BAT_LOW) {
 		// On revision 0 of ESP32, this function must be called:

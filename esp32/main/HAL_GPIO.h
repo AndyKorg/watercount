@@ -9,9 +9,9 @@
 #define STARTUP_MODE_PIN	GPIO_NUM_36	//start up mode: AP start or ST start
 
 //adc sensor - ADC1 only!
-#define SENSOR_NAMUR_CHANAL ADC1_CHANNEL_6	//GPIO_NUM_34
+#define SENSOR_NAMUR_CHANAL	6			//for ulp coprocessor! ADC1_CHANNEL_6 (GPIO_NUM_34) because the ADC1_CHANNEL_X ulp translator does not understand.
 #define SENSOR_NAMUR_ATTEN	ADC_ATTEN_11db
-#define SENSOR_BAT_CHANAL 	ADC1_CHANNEL_5	//GPIO_NUM_33
+#define SENSOR_BAT_CHANAL	5			//for ulp coprocessor! ADC1_CHANNEL_5 (GPIO_NUM_33) because the ADC1_CHANNEL_X ulp translator does not understand.
 #define SENSOR_PWR_CHANAL 	ADC1_CHANNEL_3	//GPIO_NUM_39
 #define SENSOR_BAT_ATTEN	ADC_ATTEN_11db
 #define ADC_WIDTH_SENSOR	ADC_WIDTH_12Bit
@@ -33,6 +33,12 @@
 #define SENSOR_THR_LOW		700 	//less than this threshold is considered a line low
 #define SENSOR_THR_LOW_MIN	300 	//less than this threshold is considered a line break
 
+
+/* state sensor */
+#define SENSOR_STATE_NORMAL 		0
+#define SENSOR_STATE_SHOT_CIRCUIT	1
+#define SENSOR_STATE_BREAK_LINE		2
+#define SENSOR_STATE_ALARM_LEVEL	3
 
 //power enable sensor
 #define SENSOR_POWER_EN		GPIO_NUM_4

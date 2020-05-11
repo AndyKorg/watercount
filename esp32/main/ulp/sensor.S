@@ -13,6 +13,7 @@
 #include "soc/rtc_cntl_reg.h"
 #include "soc/soc_ulp.h"
 #include "soc/rtc_io_reg.h"
+#include "HAL_GPIO.h"
 
 //RTC_IO_TOUCH_PAD0_REG - rtc pin 10
 #define SENSOR_PWR_PIN_UNHOLD 	WRITE_RTC_REG(RTC_IO_TOUCH_PAD0_REG, RTC_IO_TOUCH_PAD0_HOLD_S,1,0)
@@ -24,22 +25,9 @@
 #define LEVEL_LOW	0
 #define LEVEL_HIGH	1
 
-	/* state sensor */
-#define SENSOR_STATE_NORMAL 		0
-#define SENSOR_STATE_SHOT_CIRCUIT	1
-#define SENSOR_STATE_BREAK_LINE		2
-#define SENSOR_STATE_ALARM_LEVEL	3
-
-	/* ADC1 channel sensor, see ulp_sensor.c */
-	.set adc_channel_sensor, 6
-	/* sensor power enable, see ulp_sensor.c */
-	.set sensor_power_enable, 10
-	/* ADC1 batarey voltage, see ulp_sensor.c */
-	.set adc_channel_batarey, 5
-
 	/* Configure the number of ADC samples to average on each measurement.
 	   For convenience, make it a power of 2. */
-	.set adc_oversampling_factor_log, 2
+	.set adc_oversampling_factor_log, 4
 	.set adc_oversampling_factor, (1 << adc_oversampling_factor_log)
 
 	/* Define variables, which go into .bss section (zero-initialized data) */
@@ -134,7 +122,7 @@ entry:
 	stage_rst
 measure_bat:
 	/* measure and add value to accumulator */
-	adc r1, 0, adc_channel_batarey + 1
+	adc r1, 0, SENSOR_BAT_CHANAL + 1
 	add r0, r0, r1
 	/* increment loop counter and check exit condition */
 	stage_inc 1
@@ -154,7 +142,7 @@ measure_bat:
 	stage_rst
 measure_sensor:
 	/* measure and add value to accumulator r0*/
-	adc r1, 0, adc_channel_sensor + 1
+	adc r1, 0, SENSOR_NAMUR_CHANAL+1 // adc_channel_sensor + 1
 	add r0, r0, r1
 	/* increment loop counter and check exit condition */
 	stage_inc 1
