@@ -48,6 +48,7 @@
 #define THR_LOW_CHANL		7
 #define THR_LOW_MIN_CHANL	8
 #define SENSOR_STATE_CHANL	9			//state sensor
+#define REASON_RST_CHANL	10			//state sensor
 
 #define SETTING_TIMEOUT_S	60			//timeout sleep
 #define APP_CORE_ID			(portNUM_PROCESSORS-1)
@@ -243,8 +244,21 @@ esp_err_t sendVersion(uint8_t *chanal, char **sensorType, uint32_t *value) {
 	ESP_LOGI(TAG, "send start version");
 	*sensorType = calloc(strlen(CAYENNE_ANALOG_SENSOR) + 12, sizeof(char)); //12 digit for uint32_t
 	if (sensorType) {
-		*chanal = VERSION_CHANL;
+		*chanal = REASON_RST_CHANL;
 		*value = VERSION_BUILD_NUM;
+		memcpy(*sensorType, CAYENNE_ANALOG_SENSOR, strlen(CAYENNE_ANALOG_SENSOR));
+		return ESP_OK;
+	}
+	return ESP_ERR_NO_MEM;
+}
+
+//send reason reset to cloud
+esp_err_t sendReasonRst(uint8_t *chanal, char **sensorType, uint32_t *value) {
+	*sensorType = calloc(strlen(CAYENNE_ANALOG_SENSOR) + 12, sizeof(char)); //12 digit for uint32_t
+	if (sensorType) {
+		*chanal = VERSION_CHANL;
+		esp_reset_reason_t reason = esp_reset_reason();
+		*value = reason;
 		memcpy(*sensorType, CAYENNE_ANALOG_SENSOR, strlen(CAYENNE_ANALOG_SENSOR));
 		return ESP_OK;
 	}
@@ -325,8 +339,10 @@ inline esp_err_t cayReg(void) {
 							if (Cayenne_send_reg(THR_LOW_CHANL, sendThrMinLo) == ESP_OK) {
 								if (Cayenne_send_reg(THR_LOW_MIN_CHANL, sendThrLow) == ESP_OK) {
 									if (Cayenne_send_reg(SENSOR_STATE_CHANL, sendStateSensor) == ESP_OK) {
-										Cayenne_pub_end_reg(pubEnd);
-										return ESP_OK;
+										if (Cayenne_send_reg(REASON_RST_CHANL, sendReasonRst) == ESP_OK) {
+											Cayenne_pub_end_reg(pubEnd);
+											return ESP_OK;
+										}
 									}
 								}
 							}
